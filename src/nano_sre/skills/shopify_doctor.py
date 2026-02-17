@@ -83,9 +83,7 @@ class ShopifyDoctorSkill(Skill):
             # Report console errors as warnings to avoid failing audits on demo stores
             if console_errors:
                 details["console_errors"] = console_errors[:10]  # Limit to first 10
-                warnings.append(
-                    f"Found {len(console_errors)} console error(s) on storefront"
-                )
+                warnings.append(f"Found {len(console_errors)} console error(s) on storefront")
 
             # Remove listener
             page.remove_listener("console", handle_console)
