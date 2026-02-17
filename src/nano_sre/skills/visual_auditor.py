@@ -86,11 +86,13 @@ class VisualAuditor(Skill):
                     max_diff_percent = diff_result["diff_percent"]
 
                 if diff_result.get("has_significant_diff"):
-                    differences_found.append({
-                        "page": page_path,
-                        "diff_percent": diff_result["diff_percent"],
-                        "llm_assessment": diff_result.get("llm_assessment"),
-                    })
+                    differences_found.append(
+                        {
+                            "page": page_path,
+                            "diff_percent": diff_result["diff_percent"],
+                            "llm_assessment": diff_result.get("llm_assessment"),
+                        }
+                    )
 
             except Exception as e:
                 logger.exception(f"Error auditing {page_path}: {e}")
@@ -120,9 +122,7 @@ class VisualAuditor(Skill):
             screenshots=screenshots_taken,
         )
 
-    async def _audit_page(
-        self, page: Page, base_url: str, page_path: str
-    ) -> dict[str, Any]:
+    async def _audit_page(self, page: Page, base_url: str, page_path: str) -> dict[str, Any]:
         """
         Audit a single page by capturing screenshot and comparing to baseline.
 
@@ -158,6 +158,7 @@ class VisualAuditor(Skill):
         # If updating baseline, copy current to baseline
         if self.update_baseline:
             import shutil
+
             shutil.copy(current_path, baseline_path)
             logger.info(f"Updated baseline: {baseline_path}")
             result["baseline_updated"] = True
@@ -179,15 +180,11 @@ class VisualAuditor(Skill):
         # Check if difference exceeds threshold
         if diff_percent > self.DIFF_THRESHOLD:
             result["has_significant_diff"] = True
-            logger.info(
-                f"Significant diff detected on {page_path}: {diff_percent:.2%}"
-            )
+            logger.info(f"Significant diff detected on {page_path}: {diff_percent:.2%}")
 
             # Send to LLM for analysis if client available
             if self.llm_client:
-                assessment = await self._get_llm_assessment(
-                    baseline_path, current_path, page_path
-                )
+                assessment = await self._get_llm_assessment(baseline_path, current_path, page_path)
                 result["llm_assessment"] = assessment
             else:
                 result["llm_assessment"] = "LLM analysis not available (no client configured)"
@@ -197,9 +194,7 @@ class VisualAuditor(Skill):
 
         return result
 
-    def _calculate_pixel_diff(
-        self, baseline_path: Path, current_path: Path
-    ) -> float:
+    def _calculate_pixel_diff(self, baseline_path: Path, current_path: Path) -> float:
         """
         Calculate pixel difference percentage between two images.
 
@@ -232,9 +227,7 @@ class VisualAuditor(Skill):
             diff = ImageChops.difference(baseline, current)
 
             # Count non-zero pixels (differences)
-            diff_pixels = sum(
-                1 for pixel in diff.getdata() if pixel != (0, 0, 0)
-            )
+            diff_pixels = sum(1 for pixel in diff.getdata() if pixel != (0, 0, 0))
             total_pixels = baseline.size[0] * baseline.size[1]
 
             diff_percent = diff_pixels / total_pixels if total_pixels > 0 else 0.0
@@ -282,15 +275,11 @@ class VisualAuditor(Skill):
                         },
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{baseline_b64}"
-                            },
+                            "image_url": {"url": f"data:image/png;base64,{baseline_b64}"},
                         },
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{current_b64}"
-                            },
+                            "image_url": {"url": f"data:image/png;base64,{current_b64}"},
                         },
                     ],
                 }

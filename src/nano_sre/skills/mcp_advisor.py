@@ -163,11 +163,13 @@ class MCPAdvisor(Skill):
                         recommendations["docs"].append(result["documentation_link"])
 
                     if result.get("is_deprecated"):
-                        recommendations["deprecations"].append({
-                            "feature": result.get("feature"),
-                            "deprecation_date": result.get("deprecation_date"),
-                            "replacement": result.get("replacement"),
-                        })
+                        recommendations["deprecations"].append(
+                            {
+                                "feature": result.get("feature"),
+                                "deprecation_date": result.get("deprecation_date"),
+                                "replacement": result.get("replacement"),
+                            }
+                        )
 
             except Exception as e:
                 logger.warning(f"Failed to query MCP for console error: {e}")
@@ -194,12 +196,14 @@ class MCPAdvisor(Skill):
                         recommendations["docs"].append(result["documentation_link"])
 
                     if result.get("is_deprecated"):
-                        recommendations["deprecations"].append({
-                            "api_field": result.get("field"),
-                            "deprecation_date": result.get("deprecation_date"),
-                            "replacement": result.get("replacement"),
-                            "migration_guide": result.get("migration_guide"),
-                        })
+                        recommendations["deprecations"].append(
+                            {
+                                "api_field": result.get("field"),
+                                "deprecation_date": result.get("deprecation_date"),
+                                "replacement": result.get("replacement"),
+                                "migration_guide": result.get("migration_guide"),
+                            }
+                        )
 
             except Exception as e:
                 logger.warning(f"Failed to query MCP for API error: {e}")
@@ -276,8 +280,7 @@ class MCPAdvisor(Skill):
         # }
 
         logger.debug(
-            f"MCP query for API error: {error_message} "
-            f"(code: {error_code}, version: {api_version})"
+            f"MCP query for API error: {error_message} (code: {error_code}, version: {api_version})"
         )
         return None
 

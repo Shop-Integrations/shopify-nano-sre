@@ -158,9 +158,7 @@ class HeadlessProbeSkill(Skill):
             page.remove_listener("console", handle_console)
             page.remove_listener("response", handle_response)
 
-    async def _check_rate_limits(
-        self, api_responses: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    async def _check_rate_limits(self, api_responses: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Check for rate-limit responses (429) and retry headers.
 
@@ -285,9 +283,7 @@ class HeadlessProbeSkill(Skill):
                     dom_price = await self._extract_price_from_dom(page)
 
                     # Get price from API
-                    api_price = await self._fetch_product_price_from_api(
-                        product_handle, context
-                    )
+                    api_price = await self._fetch_product_price_from_api(product_handle, context)
 
                     if dom_price and api_price:
                         # Compare prices (allow small floating point differences)
@@ -316,8 +312,8 @@ class HeadlessProbeSkill(Skill):
         try:
             # Common price selectors for Shopify themes
             price_selectors = [
-                '[data-price]',
-                '.price',
+                "[data-price]",
+                ".price",
                 '[class*="price"]',
                 '[data-testid="price"]',
                 'meta[property="product:price:amount"]',
@@ -384,9 +380,7 @@ class HeadlessProbeSkill(Skill):
                     product = data.get("data", {}).get("product")
                     if product:
                         amount = (
-                            product.get("priceRange", {})
-                            .get("minVariantPrice", {})
-                            .get("amount")
+                            product.get("priceRange", {}).get("minVariantPrice", {}).get("amount")
                         )
                         if amount:
                             return float(amount)

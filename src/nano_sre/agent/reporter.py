@@ -78,10 +78,10 @@ def _format_timestamp(dt: datetime) -> str:
     """
     # If timezone-naive, assume UTC (as per SkillResult's datetime.utcnow() usage)
     if dt.tzinfo is None:
-        return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+        return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
     # If timezone-aware, convert to UTC and format
     utc_dt = dt.astimezone(timezone.utc)
-    return utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+    return utc_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def _generate_report_content(
@@ -133,7 +133,9 @@ def _generate_report_content(
     warned = sum(1 for r in results if r.status == "WARN")
     failed = sum(1 for r in results if r.status == "FAIL")
 
-    lines.append(f"**Total Skills:** {total} | **Passed:** {passed} | **Warnings:** {warned} | **Failed:** {failed}")
+    lines.append(
+        f"**Total Skills:** {total} | **Passed:** {passed} | **Warnings:** {warned} | **Failed:** {failed}"
+    )
     lines.append("")
 
     # Per-skill findings
@@ -260,8 +262,7 @@ def _generate_recommended_actions(results: list[SkillResult]) -> list[str]:
     # Critical failures
     if failed:
         actions.append(
-            f"🚨 **Critical:** {len(failed)} skill(s) failed - "
-            f"immediate investigation required"
+            f"🚨 **Critical:** {len(failed)} skill(s) failed - immediate investigation required"
         )
         for result in failed:
             actions.append(f"  - Investigate {result.skill_name}: {result.summary}")
@@ -269,8 +270,7 @@ def _generate_recommended_actions(results: list[SkillResult]) -> list[str]:
     # Warnings
     if warned:
         actions.append(
-            f"⚠️ **Warning:** {len(warned)} skill(s) reported warnings - "
-            f"review recommended"
+            f"⚠️ **Warning:** {len(warned)} skill(s) reported warnings - review recommended"
         )
         for result in warned:
             actions.append(f"  - Review {result.skill_name}: {result.summary}")
@@ -280,20 +280,14 @@ def _generate_recommended_actions(results: list[SkillResult]) -> list[str]:
         if result.details:
             # Rate limit issues
             if "rate_limit_issues" in result.details and result.details["rate_limit_issues"]:
-                actions.append(
-                    "📊 Consider implementing rate limit backoff strategies"
-                )
+                actions.append("📊 Consider implementing rate limit backoff strategies")
 
             # Hydration mismatches
             if "hydration_mismatches" in result.details and result.details["hydration_mismatches"]:
-                actions.append(
-                    "⚛️ Review server-side rendering and client hydration logic"
-                )
+                actions.append("⚛️ Review server-side rendering and client hydration logic")
 
             # Stale data
             if "stale_data_issues" in result.details and result.details["stale_data_issues"]:
-                actions.append(
-                    "🔄 Check ISR/cache invalidation configuration"
-                )
+                actions.append("🔄 Check ISR/cache invalidation configuration")
 
     return actions

@@ -166,31 +166,37 @@ class PixelAuditor(Skill):
         # Facebook Pixel
         if "facebook.com" in parsed.netloc and ("/tr" in parsed.path or "/pixel" in parsed.path):
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["facebook"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["facebook"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"Facebook pixel hit: {url}")
 
         # Google Analytics (GA4 or Universal)
         elif "google-analytics.com" in parsed.netloc or "analytics.google.com" in parsed.netloc:
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["google_analytics"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["google_analytics"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"Google Analytics hit: {url}")
 
         # TikTok Pixel
         elif "tiktok.com" in parsed.netloc and "/pixel" in parsed.path:
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["tiktok"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["tiktok"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"TikTok pixel hit: {url}")
 
     async def _inject_mock_events(self, page: Page) -> None:
@@ -286,34 +292,38 @@ class PixelAuditor(Skill):
                         missing_fields.append(field)
 
                 if missing_fields:
-                    self.validation_errors.append({
-                        "event": event_name,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}",
-                        "data": event_data,
-                    })
-                    logger.warning(
-                        f"Event {event_name} missing fields: {missing_fields}"
+                    self.validation_errors.append(
+                        {
+                            "event": event_name,
+                            "error": f"Missing required fields: {', '.join(missing_fields)}",
+                            "data": event_data,
+                        }
                     )
+                    logger.warning(f"Event {event_name} missing fields: {missing_fields}")
 
                 # Validate currency format (should be 3-letter ISO code)
                 if "currency" in event_data:
                     currency = event_data["currency"]
                     if not isinstance(currency, str) or len(currency) != 3:
-                        self.validation_errors.append({
-                            "event": event_name,
-                            "error": f"Invalid currency format: {currency}",
-                            "data": event_data,
-                        })
+                        self.validation_errors.append(
+                            {
+                                "event": event_name,
+                                "error": f"Invalid currency format: {currency}",
+                                "data": event_data,
+                            }
+                        )
 
                 # Validate value is numeric
                 if "value" in event_data:
                     value = event_data["value"]
                     if not isinstance(value, (int, float)):
-                        self.validation_errors.append({
-                            "event": event_name,
-                            "error": f"Invalid value type: {type(value).__name__}",
-                            "data": event_data,
-                        })
+                        self.validation_errors.append(
+                            {
+                                "event": event_name,
+                                "error": f"Invalid value type: {type(value).__name__}",
+                                "data": event_data,
+                            }
+                        )
 
     def _generate_health_report(self) -> SkillResult:
         """
@@ -332,9 +342,7 @@ class PixelAuditor(Skill):
             event_counts[event_name] = event_counts.get(event_name, 0) + 1
 
         # Count pixel hits by platform
-        pixel_status = {
-            platform: len(hits) for platform, hits in self.pixel_hits.items()
-        }
+        pixel_status = {platform: len(hits) for platform, hits in self.pixel_hits.items()}
 
         # Determine overall status
         if total_errors > 0:
@@ -357,8 +365,7 @@ class PixelAuditor(Skill):
         }
 
         logger.info(
-            f"Pixel audit complete: {total_events} events, "
-            f"{total_errors} errors, status={status}"
+            f"Pixel audit complete: {total_events} events, {total_errors} errors, status={status}"
         )
 
         return SkillResult(
