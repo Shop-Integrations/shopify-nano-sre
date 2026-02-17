@@ -45,7 +45,7 @@ jobs:
         if: always()
         run: |
           echo "Audit Status: ${{ steps.audit.outputs.status }}"
-          if [ "${{ steps.audit.outputs.status }}" = "FAIL" ]; then
+          if [ "${{ steps.audit.outputs.status }}" == "FAIL" ]; then
             echo "::warning::Store audit detected failures!"
           fi
       

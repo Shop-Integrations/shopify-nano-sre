@@ -55,48 +55,32 @@ runs:
         # Create output directory for reports
         mkdir -p nano-sre-output
         
-        # Run the audit command and capture output
-        set +e  # Don't exit on error, we need to process the results
+        # Run the audit command (continue on failure to process results)
+        set +e
         nano-sre audit --url "$STORE_URL" --output nano-sre-output/report.json
-        audit_exit_code=$?
         set -e
         
         # Parse the report to determine overall status
         if [ -f nano-sre-output/report.json ]; then
-          # Extract status from report (check if any skill has FAIL status)
-          has_failures=$(python -c "
-        import json
-        import sys
-        try:
-            with open('nano-sre-output/report.json', 'r') as f:
-                report = json.load(f)
-            results = report.get('results', [])
-            has_fail = any(r.get('status') == 'FAIL' for r in results)
-            print('true' if has_fail else 'false')
-        except Exception as e:
-            print('true')  # Treat parse errors as failures
-            sys.exit(1)
-        ")
+          # Check if any skill has FAIL status using Python
+          has_failures=$(python -c "import json; report = json.load(open('nano-sre-output/report.json')); print('true' if any(r.get('status') == 'FAIL' for r in report.get('results', [])) else 'false')" 2>&1)
           
-          # Set output status
-          if [ "$has_failures" = "true" ]; then
+          # Set output status and exit code based on failures
+          if [ "$has_failures" == "true" ]; then
             echo "status=FAIL" >> $GITHUB_OUTPUT
             echo "❌ Audit completed with failures"
-            exit_code=1
+            exit 1
           else
             echo "status=PASS" >> $GITHUB_OUTPUT
             echo "✅ Audit completed successfully"
-            exit_code=0
+            exit 0
           fi
         else
           # No report file means the audit failed to run
           echo "status=FAIL" >> $GITHUB_OUTPUT
           echo "❌ Audit failed to generate report"
-          exit_code=1
+          exit 1
         fi
-        
-        # Exit with appropriate code
-        exit $exit_code
 
     - name: Upload audit report
       uses: actions/upload-artifact@v4
