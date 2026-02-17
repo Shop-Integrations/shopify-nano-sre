@@ -3,7 +3,7 @@
 import base64
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image, ImageChops
 from playwright.async_api import Page
@@ -206,29 +206,32 @@ class VisualAuditor(Skill):
             Percentage of different pixels (0.0 to 1.0)
         """
         try:
-            baseline = Image.open(baseline_path)
-            current = Image.open(current_path)
+            baseline_img: Image.Image = Image.open(baseline_path)
+            current_img: Image.Image = Image.open(current_path)
 
             # Resize images to match if dimensions differ
-            if baseline.size != current.size:
+            if baseline_img.size != current_img.size:
                 logger.warning(
-                    f"Image size mismatch: baseline={baseline.size}, current={current.size}"
+                    f"Image size mismatch: baseline={baseline_img.size}, current={current_img.size}"
                 )
                 # Resize current to match baseline
-                current = current.resize(baseline.size, Image.LANCZOS)
+                resample = cast(Any, getattr(Image, "Resampling", Image)).LANCZOS
+                current_img = current_img.resize(baseline_img.size, resample=resample)
 
             # Convert to RGB if needed
-            if baseline.mode != "RGB":
-                baseline = baseline.convert("RGB")
-            if current.mode != "RGB":
-                current = current.convert("RGB")
+            if baseline_img.mode != "RGB":
+                baseline_img = baseline_img.convert("RGB")
+            if current_img.mode != "RGB":
+                current_img = current_img.convert("RGB")
 
             # Calculate pixel differences
-            diff = ImageChops.difference(baseline, current)
+            diff = ImageChops.difference(baseline_img, current_img)
+            diff_gray = diff.convert("L")
 
             # Count non-zero pixels (differences)
-            diff_pixels = sum(1 for pixel in diff.getdata() if pixel != (0, 0, 0))
-            total_pixels = baseline.size[0] * baseline.size[1]
+            histogram = diff_gray.histogram()
+            diff_pixels = sum(histogram[1:])
+            total_pixels = diff_gray.size[0] * diff_gray.size[1]
 
             diff_percent = diff_pixels / total_pixels if total_pixels > 0 else 0.0
 
