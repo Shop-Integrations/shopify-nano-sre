@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -42,12 +43,12 @@ def main(ctx, report_dir):
     required=False,
     help="Path to save the audit report as JSON",
 )
-def audit(url: str, output: str):
+def audit(url: str, output: Optional[str]):
     """Run an audit on the specified Shopify store URL."""
     asyncio.run(_run_audit(url, output))
 
 
-async def _run_audit(url: str, output: str = None):
+async def _run_audit(url: str, output: Optional[str] = None):
     """Execute the audit asynchronously."""
     import json
     from pathlib import Path
