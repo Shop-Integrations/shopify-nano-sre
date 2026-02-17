@@ -30,6 +30,7 @@ Requires-Dist: click>=8.0.0
 Requires-Dist: httpx>=0.25.0
 Provides-Extra: dev
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: pytest-playwright>=0.4.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"
@@ -44,21 +45,56 @@ Dynamic: license-file
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Playwright](https://img.shields.io/badge/powered%20by-Playwright-green.svg)](https://playwright.dev/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![CI Status](https://github.com/[OWNER]/shopify-nano-sre/actions/workflows/ci.yml/badge.svg)](https://github.com/[OWNER]/shopify-nano-sre/actions)
+[![CI Status](https://github.com/Shop-Integrations/shopify-nano-sre/actions/workflows/ci.yml/badge.svg)](https://github.com/Shop-Integrations/shopify-nano-sre/actions)
+
+## Monitoring Comparison
+
+| Feature                           | Pingdom | Datadog           | Shopify Nano-SRE |
+| --------------------------------- | ------- | ----------------- | ---------------- |
+| HTTP Uptime                       | ✅      | ✅                | ✅               |
+| Synthetic User Journey            | ❌      | ⚠️ (manual)       | ✅               |
+| Shopify Awareness                 | ❌      | ⚠️                | ✅               |
+| Checkout Audit                    | ❌      | ⚠️ (manual)       | ✅               |
+| Analytics Pixel Validation        | ❌      | ❌                | ✅               |
+| LLM-Powered Diagnosis             | ❌      | ❌                | ✅               |
+| Mobile-First Monitoring           | ⚠️      | ⚠️                | ✅               |
+| Open Source                       | ❌      | ❌                | ✅               |
+| Self-Hosted                       | ❌      | ❌                | ✅               |
+| Setup Time                        | 5 min   | Days or weeks     | 5 min            |
+| Cost per month                    | $10-50  | $500+ (enterprise) | Free (+ LLM API) |
+
+## Features
+
+- 🤖 **Agentic Diagnostics**: LLMs analyze failures and propose next steps
+- 🎭 **Synthetic Shopper**: Real user journeys through product, cart, checkout
+- 🧪 **Pixel Auditor**: Verifies checkout events and conversion tracking
+- 🧿 **Visual Layout Sentinel**: Detects layout drift after app/theme changes
+- 🩺 **Shopify Doctor**: Uses the Shopify Dev MCP to explain API errors
+- 📊 **SQLite Baselines**: Tracks performance metrics locally
+- 🔒 **Local-First + BYOK**: Run on your machine, bring your own LLM key
+- 📱 **Mobile-First**: iPhone 14 Pro viewport included by default
+- 🐳 **Docker Ready**: Containerized deployment supported
 
 ## About
 
-Nano-SRE is a lightweight, AI-powered Site Reliability Engineering (SRE) tool designed specifically for Shopify stores. It continuously monitors your storefront—product pages, add-to-cart flows, checkout—using synthetic monitoring with Playwright, and employs LLM-driven diagnostics to detect and alert you to issues before customers see them.
+Nano-SRE is a lightweight, AI-powered Site Reliability Engineering (SRE) tool designed specifically for Shopify stores. It continuously monitors your storefront, product pages, add-to-cart flows, and checkout using synthetic monitoring with Playwright, then employs LLM-driven diagnostics to detect and alert you to issues before customers see them.
+
+### The Reliability Gaps We Target
+
+- **Silent Failures**: App embed conflicts that break add-to-cart without server errors
+- **Checkout Extensibility Migrations**: Pixels and conversion events that stop firing
+- **Headless Fragility**: API rate limits, hydration mismatches, stale data
+- **Manual QA Limits**: Continuous synthetic shoppers instead of human click-throughs
 
 ### Why Nano-SRE?
 
-As Shopify transitions to [Checkout Extensibility](https://shopify.dev/docs/custom-storefronts/checkout/checkout-extensibility), store operations become more complex. Custom checkout flows, third-party payment processors, and pixel-heavy analytics stacks introduce new failure modes that traditional uptime monitoring can't catch. Nano-SRE fills that gap by:
+As Shopify transitions to [Checkout Extensibility](https://shopify.dev/docs/custom-storefronts/checkout/checkout-extensibility), store operations become more complex. Custom checkout flows, third-party payment processors, and pixel-heavy analytics stacks introduce new failure modes that traditional uptime monitoring cannot catch. Nano-SRE fills that gap by:
 
 - **Synthetic Shopper**: Walks through your product and checkout flow autonomously
 - **Pixel Auditor**: Validates critical analytics pixels (Facebook, GA, TikTok) are firing
-- **Smart Diagnosis**: Uses Claude or GPT-4 to analyze failures and suggest remediation
+- **Smart Diagnosis**: Uses LLMs to analyze failures and suggest remediation
 - **Mobile-First**: Tests on iPhone 14 Pro viewport by default
-- **Data Privacy**: Redacts PII from logs and screenshots
+- **Local-First**: Runs locally with BYOK, keeping store data private
 
 ## Quick Start
 
@@ -71,7 +107,7 @@ pip install shopify-nano-sre
 Or clone and install in development mode:
 
 ```bash
-git clone https://github.com/[OWNER]/shopify-nano-sre.git
+git clone https://github.com/Shop-Integrations/shopify-nano-sre.git
 cd shopify-nano-sre
 pip install -e ".[dev]"
 ```
@@ -96,6 +132,12 @@ Or trigger a manual check:
 nano-sre check
 ```
 
+Or run a one-off audit:
+
+```bash
+nano-sre audit --url https://mystore.myshopify.com
+```
+
 ## How It Works
 
 ```
@@ -113,6 +155,16 @@ nano-sre check
 │  Act         │  Send alert, record incident, update baseline
 └──────────────┘
 ```
+
+### Technology Stack
+
+| Component        | Choice                     | Notes |
+| --------------- | -------------------------- | ----- |
+| Agent Core      | Nanobot-inspired Python    | Lightweight and auditable |
+| Browser Engine  | Playwright                 | Handles hydration and pixels |
+| Intelligence    | LiteLLM                    | OpenAI, Anthropic, local models |
+| Knowledge Base  | Shopify Dev MCP            | Live API docs and errors |
+| State           | SQLite                     | Local baselines and incidents |
 
 ### Skill: Synthetic Shopper
 
@@ -133,29 +185,27 @@ Tracks pixel firing:
 - **Google Analytics**: `google-analytics.com/collect`
 - **TikTok Pixel**: `analytics.tiktok.com/v1/track`
 
-## Monitoring Comparison
+### Skill: Visual Layout Sentinel
 
-| Feature                           | Pingdom | Datadog      | Nano-SRE         |
-| --------------------------------- | ------- | ------------ | ---------------- |
-| HTTP Uptime                       | ✅      | ✅           | ✅               |
-| Checkout Flow Testing             | ❌      | ⚠️ (complex) | ✅               |
-| Analytics Pixel Validation        | ❌      | ❌           | ✅               |
-| LLM-Powered Diagnosis             | ❌      | ❌           | ✅               |
-| Mobile-First Synthetic Monitoring | ⚠️      | ⚠️           | ✅               |
-| Open Source                       | ❌      | ❌           | ✅               |
-| Self-Hosted                       | ❌      | ❌           | ✅               |
-| Cost per month                    | $10–100 | $100–1000+   | Free (+ LLM API) |
+- Captures baseline screenshots for key templates
+- Uses LLM vision to detect layout drift after app/theme changes
 
-## Features
+### Skill: Shopify Doctor
 
-- 🤖 **AI-Driven Analytics**: Claude or GPT-4 analyzes synthetic test failures
-- 🎭 **Playwright-Based**: Accurate browser automation, JavaScript rendering
-- 📊 **SQLite Storage**: Local incident & baseline tracking
-- 🔒 **Privacy First**: PII redaction, optional screenshot blurring
-- 🚀 **Async-First**: Concurrent skill execution, minimal overhead
-- 📱 **Mobile Testing**: iPhone 14 Pro viewport included
-- 🔐 **MIT Licensed**: Fully open source
-- 🐳 **Docker Ready**: Includes Dockerfile for containerized deployment
+- Queries the Shopify Dev MCP for API and deprecation guidance
+- Turns GraphQL errors into actionable fixes
+
+## Deployment Options
+
+- **Local CLI**: Run checks from your terminal or CI
+- **GitHub Action**: Block deployments when critical checks fail
+- **Self-Hosted Worker**: Run scheduled checks for multiple stores
+
+## Roadmap
+
+- **Phase 1**: CLI + GitHub Action (open-source, BYOK)
+- **Phase 2**: Managed worker service for agencies and merchants
+- **Phase 3**: Plugin system for app-specific health checks
 
 ## Development
 
@@ -198,13 +248,13 @@ A Helm chart is planned for future releases.
 
 ## Support & Contributing
 
-- **Issue Tracker**: [GitHub Issues](https://github.com/[OWNER]/shopify-nano-sre/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/[OWNER]/shopify-nano-sre/discussions)
+- **Issue Tracker**: [GitHub Issues](https://github.com/Shop-Integrations/shopify-nano-sre/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Shop-Integrations/shopify-nano-sre/discussions)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md) (placeholder)
 
 ## License
 
-This project is licensed under the MIT License—see [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## Security
 

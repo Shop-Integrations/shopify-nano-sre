@@ -139,3 +139,7 @@ ruff.toml
 # Playwright
 .auth.json
 .test-results/
+
+# Generated reports
+reports/
+
