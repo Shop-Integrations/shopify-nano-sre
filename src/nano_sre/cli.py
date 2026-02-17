@@ -141,9 +141,7 @@ def baseline_update(ctx, url: str, skill_names: Iterable[str]):
     selected_skills = list(skill_names) if skill_names else ["visual_auditor"]
     normalized = {_normalize_skill_name(name) for name in selected_skills}
     if normalized != {"visual_auditor"}:
-        raise click.BadParameter(
-            "Baseline updates currently support only visual_auditor."
-        )
+        raise click.BadParameter("Baseline updates currently support only visual_auditor.")
     asyncio.run(
         _run_audit(
             url,
@@ -303,9 +301,7 @@ async def _run_watch(
                 report_dir=report_dir,
                 skill_names=skill_names,
             )
-            console.print(
-                f"[dim]Next check in {interval} minute(s). Press Ctrl+C to stop.[/dim]"
-            )
+            console.print(f"[dim]Next check in {interval} minute(s). Press Ctrl+C to stop.[/dim]")
             await asyncio.sleep(interval * 60)
     except KeyboardInterrupt:
         console.print("[yellow]Monitoring stopped.[/yellow]")
