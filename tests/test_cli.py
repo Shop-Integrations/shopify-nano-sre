@@ -1,7 +1,6 @@
 """Tests for the CLI module."""
 
 from click.testing import CliRunner
-
 from nano_sre.cli import main
 
 
