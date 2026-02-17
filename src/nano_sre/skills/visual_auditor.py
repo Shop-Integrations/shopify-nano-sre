@@ -16,14 +16,14 @@ logger = logging.getLogger(__name__)
 class VisualAuditor(Skill):
     """
     Visual regression testing skill.
-    
+
     Captures full-page screenshots of key pages, compares against baselines,
     and uses LLM vision models to assess significant visual differences.
     """
 
     BASELINE_DIR = Path("db/baselines")
     DIFF_THRESHOLD = 0.05  # 5% pixel difference threshold
-    
+
     # Pages to monitor
     MONITORED_PAGES = [
         "/",  # index
@@ -35,7 +35,7 @@ class VisualAuditor(Skill):
     def __init__(self, llm_client: Any = None, update_baseline: bool = False):
         """
         Initialize visual auditor.
-        
+
         Args:
             llm_client: LiteLLM client for vision analysis (optional)
             update_baseline: If True, update baseline images instead of comparing
@@ -51,16 +51,16 @@ class VisualAuditor(Skill):
     async def run(self, context: dict[str, Any]) -> SkillResult:
         """
         Execute visual audit by capturing and comparing screenshots.
-        
+
         Args:
             context: Must contain 'page' (Playwright Page) and 'base_url'
-            
+
         Returns:
             SkillResult with comparison results and LLM assessment
         """
         page: Page = context.get("page")
         base_url: str = context.get("base_url", "")
-        
+
         if not page:
             return SkillResult(
                 skill_name=self.name(),
@@ -78,20 +78,20 @@ class VisualAuditor(Skill):
             try:
                 logger.info(f"Auditing page: {page_path}")
                 diff_result = await self._audit_page(page, base_url, page_path)
-                
+
                 results[page_path] = diff_result
                 screenshots_taken.append(diff_result.get("screenshot_path", ""))
-                
+
                 if diff_result.get("diff_percent", 0) > max_diff_percent:
                     max_diff_percent = diff_result["diff_percent"]
-                
+
                 if diff_result.get("has_significant_diff"):
                     differences_found.append({
                         "page": page_path,
                         "diff_percent": diff_result["diff_percent"],
                         "llm_assessment": diff_result.get("llm_assessment"),
                     })
-                    
+
             except Exception as e:
                 logger.exception(f"Error auditing {page_path}: {e}")
                 results[page_path] = {"error": str(e)}
@@ -125,36 +125,36 @@ class VisualAuditor(Skill):
     ) -> dict[str, Any]:
         """
         Audit a single page by capturing screenshot and comparing to baseline.
-        
+
         Args:
             page: Playwright page instance
             base_url: Base URL of the store
             page_path: Path to audit (e.g., "/cart")
-            
+
         Returns:
             Dict with diff results and assessment
         """
         # Navigate to page
         url = f"{base_url.rstrip('/')}{page_path}"
         await page.goto(url, wait_until="networkidle")
-        
+
         # Generate filename from path
         filename = page_path.strip("/").replace("/", "_") or "index"
         current_path = Path(f"db/screenshots/{filename}_current.png")
         baseline_path = self.BASELINE_DIR / f"{filename}.png"
-        
+
         # Ensure screenshot directory exists
         current_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Capture full-page screenshot
         await page.screenshot(path=str(current_path), full_page=True)
         logger.info(f"Captured screenshot: {current_path}")
-        
+
         result = {
             "screenshot_path": str(current_path),
             "baseline_path": str(baseline_path),
         }
-        
+
         # If updating baseline, copy current to baseline
         if self.update_baseline:
             import shutil
@@ -163,7 +163,7 @@ class VisualAuditor(Skill):
             result["baseline_updated"] = True
             result["diff_percent"] = 0.0
             return result
-        
+
         # Compare with baseline if it exists
         if not baseline_path.exists():
             logger.warning(f"No baseline found for {page_path}, skipping comparison")
@@ -171,18 +171,18 @@ class VisualAuditor(Skill):
             result["has_significant_diff"] = False
             result["message"] = "No baseline available"
             return result
-        
+
         # Perform pixel comparison
         diff_percent = self._calculate_pixel_diff(baseline_path, current_path)
         result["diff_percent"] = diff_percent
-        
+
         # Check if difference exceeds threshold
         if diff_percent > self.DIFF_THRESHOLD:
             result["has_significant_diff"] = True
             logger.info(
                 f"Significant diff detected on {page_path}: {diff_percent:.2%}"
             )
-            
+
             # Send to LLM for analysis if client available
             if self.llm_client:
                 assessment = await self._get_llm_assessment(
@@ -194,7 +194,7 @@ class VisualAuditor(Skill):
         else:
             result["has_significant_diff"] = False
             logger.info(f"No significant diff on {page_path}: {diff_percent:.2%}")
-        
+
         return result
 
     def _calculate_pixel_diff(
@@ -202,18 +202,18 @@ class VisualAuditor(Skill):
     ) -> float:
         """
         Calculate pixel difference percentage between two images.
-        
+
         Args:
             baseline_path: Path to baseline image
             current_path: Path to current screenshot
-            
+
         Returns:
             Percentage of different pixels (0.0 to 1.0)
         """
         try:
             baseline = Image.open(baseline_path)
             current = Image.open(current_path)
-            
+
             # Resize images to match if dimensions differ
             if baseline.size != current.size:
                 logger.warning(
@@ -221,26 +221,26 @@ class VisualAuditor(Skill):
                 )
                 # Resize current to match baseline
                 current = current.resize(baseline.size, Image.LANCZOS)
-            
+
             # Convert to RGB if needed
             if baseline.mode != "RGB":
                 baseline = baseline.convert("RGB")
             if current.mode != "RGB":
                 current = current.convert("RGB")
-            
+
             # Calculate pixel differences
             diff = ImageChops.difference(baseline, current)
-            
+
             # Count non-zero pixels (differences)
             diff_pixels = sum(
                 1 for pixel in diff.getdata() if pixel != (0, 0, 0)
             )
             total_pixels = baseline.size[0] * baseline.size[1]
-            
+
             diff_percent = diff_pixels / total_pixels if total_pixels > 0 else 0.0
-            
+
             return diff_percent
-            
+
         except Exception as e:
             logger.exception(f"Error calculating pixel diff: {e}")
             return 0.0
@@ -250,12 +250,12 @@ class VisualAuditor(Skill):
     ) -> str:
         """
         Get LLM vision model assessment of visual differences.
-        
+
         Args:
             baseline_path: Path to baseline image
             current_path: Path to current screenshot
             page_path: Page being analyzed
-            
+
         Returns:
             LLM's text assessment of the differences
         """
@@ -263,10 +263,10 @@ class VisualAuditor(Skill):
             # Read images as base64
             with open(baseline_path, "rb") as f:
                 baseline_b64 = base64.b64encode(f.read()).decode("utf-8")
-            
+
             with open(current_path, "rb") as f:
                 current_b64 = base64.b64encode(f.read()).decode("utf-8")
-            
+
             # Prepare messages for vision model
             messages = [
                 {
@@ -295,21 +295,21 @@ class VisualAuditor(Skill):
                     ],
                 }
             ]
-            
+
             # Call LLM vision API (using litellm)
             import litellm
-            
+
             response = await litellm.acompletion(
                 model=self.llm_client.get("model", "gpt-4-vision-preview"),
                 messages=messages,
                 max_tokens=500,
             )
-            
+
             assessment = response.choices[0].message.content
             logger.info(f"LLM assessment for {page_path}: {assessment}")
-            
+
             return assessment
-            
+
         except Exception as e:
             logger.exception(f"Error getting LLM assessment: {e}")
             return f"LLM assessment failed: {str(e)}"

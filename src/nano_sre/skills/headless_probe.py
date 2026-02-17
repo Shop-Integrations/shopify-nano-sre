@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 from playwright.async_api import Page, Response
