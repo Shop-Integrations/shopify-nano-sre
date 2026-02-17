@@ -25,10 +25,10 @@ class MockSkill(Skill):
     async def run(self, context: dict[str, Any]) -> SkillResult:
         """Execute the skill."""
         self.run_count += 1
-        
+
         if self._should_fail:
             raise RuntimeError(f"Mock skill {self._name} failed")
-        
+
         return SkillResult(
             skill_name=self._name,
             status=self._status,
@@ -43,7 +43,7 @@ def mock_settings():
     class MockSettings:
         check_interval_minutes = 5
         store_url = "https://test.myshopify.com"
-    
+
     return MockSettings()
 
 
@@ -57,7 +57,7 @@ class TestSkillResult:
             status="PASS",
             summary="Test passed",
         )
-        
+
         assert result.skill_name == "test_skill"
         assert result.status == "PASS"
         assert result.summary == "Test passed"
@@ -75,7 +75,7 @@ class TestSkillResult:
             summary="Test passed",
             details=details,
         )
-        
+
         assert result.details == details
 
     def test_skill_result_with_screenshots(self):
@@ -87,7 +87,7 @@ class TestSkillResult:
             summary="Test passed",
             screenshots=screenshots,
         )
-        
+
         assert result.screenshots == screenshots
 
     def test_skill_result_with_error(self):
@@ -98,7 +98,7 @@ class TestSkillResult:
             summary="Test failed",
             error="Something went wrong",
         )
-        
+
         assert result.error == "Something went wrong"
 
     def test_skill_result_to_dict(self):
@@ -113,9 +113,9 @@ class TestSkillResult:
             timestamp=timestamp,
             error=None,
         )
-        
+
         result_dict = result.to_dict()
-        
+
         assert result_dict["skill_name"] == "test_skill"
         assert result_dict["status"] == "PASS"
         assert result_dict["summary"] == "Test passed"
@@ -131,7 +131,7 @@ class TestSkillResult:
             status="PASS",
             summary="Test passed",
         )
-        
+
         # Timestamp should be recent (within last minute)
         now = datetime.now(timezone.utc)
         time_diff = (now - result.timestamp).total_seconds()
@@ -144,7 +144,7 @@ class TestAgent:
     def test_agent_creation(self, mock_settings):
         """Test creating an agent."""
         agent = Agent(mock_settings)
-        
+
         assert agent.settings == mock_settings
         assert agent.skills == {}
         assert agent.results == []
@@ -154,9 +154,9 @@ class TestAgent:
         """Test registering a skill."""
         agent = Agent(mock_settings)
         skill = MockSkill("test_skill")
-        
+
         agent.register_skill(skill)
-        
+
         assert "test_skill" in agent.skills
         assert agent.skills["test_skill"] == skill
 
@@ -165,10 +165,10 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill1 = MockSkill("skill1")
         skill2 = MockSkill("skill2")
-        
+
         agent.register_skill(skill1)
         agent.register_skill(skill2)
-        
+
         assert len(agent.skills) == 2
         assert "skill1" in agent.skills
         assert "skill2" in agent.skills
@@ -177,17 +177,17 @@ class TestAgent:
         """Test unregistering a skill."""
         agent = Agent(mock_settings)
         skill = MockSkill("test_skill")
-        
+
         agent.register_skill(skill)
         assert "test_skill" in agent.skills
-        
+
         agent.unregister_skill("test_skill")
         assert "test_skill" not in agent.skills
 
     def test_unregister_nonexistent_skill(self, mock_settings):
         """Test unregistering a skill that doesn't exist."""
         agent = Agent(mock_settings)
-        
+
         # Should not raise an error
         agent.unregister_skill("nonexistent")
         assert len(agent.skills) == 0
@@ -198,9 +198,9 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill = MockSkill("test_skill", status="PASS")
         agent.register_skill(skill)
-        
+
         results = await agent.execute_skills()
-        
+
         assert len(results) == 1
         assert results[0].skill_name == "test_skill"
         assert results[0].status == "PASS"
@@ -212,12 +212,12 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill1 = MockSkill("skill1", status="PASS")
         skill2 = MockSkill("skill2", status="WARN")
-        
+
         agent.register_skill(skill1)
         agent.register_skill(skill2)
-        
+
         results = await agent.execute_skills()
-        
+
         assert len(results) == 2
         skill_names = {r.skill_name for r in results}
         assert skill_names == {"skill1", "skill2"}
@@ -228,10 +228,10 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill = MockSkill("test_skill")
         agent.register_skill(skill)
-        
+
         context = {"test_key": "test_value"}
         results = await agent.execute_skills(context=context)
-        
+
         assert len(results) == 1
         assert results[0].details["context_data"] == "test_value"
 
@@ -242,13 +242,13 @@ class TestAgent:
         skill1 = MockSkill("skill1")
         skill2 = MockSkill("skill2")
         skill3 = MockSkill("skill3")
-        
+
         agent.register_skill(skill1)
         agent.register_skill(skill2)
         agent.register_skill(skill3)
-        
+
         results = await agent.execute_skills(skill_names=["skill1", "skill3"])
-        
+
         assert len(results) == 2
         skill_names = {r.skill_name for r in results}
         assert skill_names == {"skill1", "skill3"}
@@ -262,9 +262,9 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill = MockSkill("skill1")
         agent.register_skill(skill)
-        
+
         results = await agent.execute_skills(skill_names=["skill1", "nonexistent"])
-        
+
         # Should only execute skill1, skip nonexistent
         assert len(results) == 1
         assert results[0].skill_name == "skill1"
@@ -275,9 +275,9 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill = MockSkill("failing_skill", should_fail=True)
         agent.register_skill(skill)
-        
+
         results = await agent.execute_skills()
-        
+
         assert len(results) == 1
         assert results[0].skill_name == "failing_skill"
         assert results[0].status == "FAIL"
@@ -289,11 +289,11 @@ class TestAgent:
         agent = Agent(mock_settings)
         skill = MockSkill("test_skill")
         agent.register_skill(skill)
-        
+
         # First execution
         results1 = await agent.execute_skills()
         assert len(results1) == 1
-        
+
         # Second execution should clear previous results
         results2 = await agent.execute_skills()
         assert len(results2) == 1
@@ -302,9 +302,9 @@ class TestAgent:
     def test_get_result_summary_empty(self, mock_settings):
         """Test getting result summary when no skills executed."""
         agent = Agent(mock_settings)
-        
+
         summary = agent.get_result_summary()
-        
+
         assert summary["total_skills"] == 0
         assert summary["passed"] == 0
         assert summary["warned"] == 0
@@ -319,10 +319,10 @@ class TestAgent:
         agent.register_skill(MockSkill("skill2", status="PASS"))
         agent.register_skill(MockSkill("skill3", status="WARN"))
         agent.register_skill(MockSkill("skill4", status="FAIL", should_fail=True))
-        
+
         await agent.execute_skills()
         summary = agent.get_result_summary()
-        
+
         assert summary["total_skills"] == 4
         assert summary["passed"] == 2
         assert summary["warned"] == 1
@@ -334,13 +334,13 @@ class TestAgent:
         """Test that result summary contains properly formatted dicts."""
         agent = Agent(mock_settings)
         agent.register_skill(MockSkill("test_skill", status="PASS"))
-        
+
         await agent.execute_skills()
         summary = agent.get_result_summary()
-        
+
         assert len(summary["results"]) == 1
         result_dict = summary["results"][0]
-        
+
         # Should have all required fields
         assert "skill_name" in result_dict
         assert "status" in result_dict
@@ -365,7 +365,7 @@ class TestMockSkill:
         """Test mock skill run method."""
         skill = MockSkill("test_skill", status="PASS")
         result = await skill.run({})
-        
+
         assert result.skill_name == "test_skill"
         assert result.status == "PASS"
 
@@ -373,7 +373,7 @@ class TestMockSkill:
     async def test_mock_skill_run_count(self):
         """Test mock skill tracks run count."""
         skill = MockSkill("test_skill")
-        
+
         assert skill.run_count == 0
         await skill.run({})
         assert skill.run_count == 1
@@ -384,6 +384,6 @@ class TestMockSkill:
     async def test_mock_skill_failure(self):
         """Test mock skill can simulate failure."""
         skill = MockSkill("failing_skill", should_fail=True)
-        
+
         with pytest.raises(RuntimeError, match="Mock skill failing_skill failed"):
             await skill.run({})
