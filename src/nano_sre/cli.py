@@ -40,12 +40,8 @@ async def _run_audit(url: str):
 
     try:
         # Create settings with the provided URL
-        settings = Settings(
-            store_url=url,
-            llm_provider="openai",
-            llm_api_key="",
-            llm_model="gpt-4",
-        )
+        # Note: LLM settings are not required for PixelAuditor
+        settings = Settings(store_url=url)
 
         # Create agent
         agent = Agent(settings)
