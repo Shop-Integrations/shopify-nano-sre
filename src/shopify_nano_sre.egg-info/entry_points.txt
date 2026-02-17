@@ -1,0 +1,2 @@
+[console_scripts]
+nano-sre = nano_sre.cli:main
