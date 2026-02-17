@@ -297,7 +297,7 @@ class VisualAuditor(Skill):
             assessment = response.choices[0].message.content or ""
             logger.info(f"LLM assessment for {page_path}: {assessment}")
 
-            return str(assessment)
+            return assessment
 
         except Exception as e:
             logger.exception(f"Error getting LLM assessment: {e}")
