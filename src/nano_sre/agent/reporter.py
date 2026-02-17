@@ -1,7 +1,7 @@
 """Report generation for incident reports."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -43,7 +43,7 @@ async def generate_report(
     report_path.mkdir(parents=True, exist_ok=True)
 
     # Generate filename with timestamp
-    timestamp = datetime.now()
+    timestamp = datetime.now(timezone.utc)
     filename = f"incident_report_{timestamp.strftime('%Y%m%d_%H%M%S')}.md"
     report_file = report_path / filename
 
@@ -61,6 +61,27 @@ async def generate_report(
     logger.info(f"Generated incident report: {report_file}")
 
     return str(report_file)
+
+
+def _format_timestamp(dt: datetime) -> str:
+    """
+    Format a datetime object as a string.
+
+    Handles both timezone-aware and timezone-naive datetimes.
+    For timezone-naive datetimes (from SkillResult), assumes UTC.
+
+    Args:
+        dt: Datetime to format
+
+    Returns:
+        Formatted timestamp string
+    """
+    # If timezone-naive, assume UTC (as per SkillResult's datetime.utcnow() usage)
+    if dt.tzinfo is None:
+        return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+    # If timezone-aware, convert to UTC and format
+    utc_dt = dt.astimezone(timezone.utc)
+    return utc_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
 
 
 def _generate_report_content(
@@ -88,7 +109,7 @@ def _generate_report_content(
     # Header section
     lines.append("# Incident Report")
     lines.append("")
-    lines.append(f"**Generated:** {timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"**Generated:** {_format_timestamp(timestamp)}")
     lines.append(f"**Store URL:** {store_url}")
     lines.append("")
 
@@ -123,7 +144,7 @@ def _generate_report_content(
         lines.append(f"### {result.skill_name}")
         lines.append("")
         lines.append(f"**Status:** {_get_status_emoji(result.status)} {result.status}")
-        lines.append(f"**Timestamp:** {result.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        lines.append(f"**Timestamp:** {_format_timestamp(result.timestamp)}")
         lines.append(f"**Summary:** {result.summary}")
         lines.append("")
 
