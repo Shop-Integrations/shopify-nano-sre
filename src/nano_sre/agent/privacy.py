@@ -12,7 +12,7 @@ class Redactor:
     """Handles redaction of sensitive data from logs and reports."""
 
     # Patterns for common sensitive data
-    PATTERNS = {
+    PATTERNS: dict[str, re.Pattern[str]] = {
         "api_key": re.compile(
             r"(?:api[_-]?key|apikey|api_secret)\s*[:=]\s*['\"]?([a-zA-Z0-9_\-]+)['\"]?",
             re.IGNORECASE,
@@ -53,7 +53,7 @@ class Redactor:
 
         return result
 
-    def _replace_match(self, match: Any) -> str:
+    def _replace_match(self, match: re.Match[str]) -> str:
         """Replace sensitive data with marker."""
         # If there's a capture group, redact just that
         if match.groups():
@@ -76,7 +76,7 @@ class Redactor:
         if not enabled:
             return data
 
-        result = {}
+        result: dict[str, Any] = {}
         for key, value in data.items():
             if isinstance(value, str):
                 result[key] = self.redact_text(value, enabled=True)
