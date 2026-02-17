@@ -163,9 +163,11 @@ Tracks pixel firing:
 
 ## Roadmap
 
-- **Phase 1**: CLI + GitHub Action (open-source, BYOK)
-- **Phase 2**: Managed worker service for agencies and merchants
-- **Phase 3**: Plugin system for app-specific health checks
+- [x] Phase 1 (current): Core skills, local monitoring
+- [ ] Phase 2: Cloud sync, dashboard, advanced LLM features
+- [ ] Phase 3: Community marketplace, advanced integrations
+
+See [docs/roadmap.md](docs/roadmap.md) for details.
 
 ## Development
 

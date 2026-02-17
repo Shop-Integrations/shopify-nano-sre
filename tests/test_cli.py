@@ -51,3 +51,35 @@ def test_audit_command_requires_url():
 
     assert result.exit_code != 0
     assert "Missing option" in result.output or "required" in result.output.lower()
+
+
+def test_watch_command_help():
+    """Test watch command help."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["watch", "--help"])
+
+    assert result.exit_code == 0
+    assert "--interval" in result.output
+    assert "--url" in result.output
+
+
+def test_baseline_update_help():
+    """Test baseline update help."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["baseline", "update", "--help"])
+
+    assert result.exit_code == 0
+    assert "--skill" in result.output
+    assert "--url" in result.output
+
+
+def test_report_show_with_path(tmp_path):
+    """Test report show command with a specific path."""
+    report_file = tmp_path / "incident_report_20240217_120000.md"
+    report_file.write_text("# Incident Report\n\nTest content\n", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["report", "show", "--path", str(report_file)])
+
+    assert result.exit_code == 0
+    assert "Incident Report" in result.output
