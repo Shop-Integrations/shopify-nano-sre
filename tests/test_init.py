@@ -8,6 +8,16 @@ def test_agent_init():
     assert agent_module is not None
 
 
+def test_agent_exports():
+    """Test that key classes and functions are exported."""
+    from nano_sre.agent import Agent, Skill, SkillResult, generate_report
+
+    assert Agent is not None
+    assert Skill is not None
+    assert SkillResult is not None
+    assert generate_report is not None
+
+
 def test_config_init():
     """Test config module initialization."""
     from nano_sre.config import __init__ as config_module
@@ -27,3 +37,4 @@ def test_main_init():
     import nano_sre
 
     assert nano_sre is not None
+
