@@ -24,6 +24,16 @@ def test_cli_invocation():
     assert result.exit_code in (0, 2)  # 2 is for missing subcommand
 
 
+def test_cli_report_dir_flag():
+    """Test CLI --report-dir flag."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["--help"])
+
+    assert result.exit_code == 0
+    assert "--report-dir" in result.output
+    assert "Directory to save incident reports" in result.output
+
+
 def test_audit_command_help():
     """Test audit command help."""
     runner = CliRunner()
