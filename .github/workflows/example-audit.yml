@@ -1,0 +1,58 @@
+name: Example - Audit Shopify Store
+
+# This is an example workflow showing how to use the nano-sre-action
+# For actual usage, configure this workflow in your repository
+
+on:
+  # Run on pushes to main/develop
+  push:
+    branches: [main, develop]
+  
+  # Run on pull requests
+  pull_request:
+    branches: [main, develop]
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      store_url:
+        description: 'Store URL to audit'
+        required: true
+        default: 'https://your-store.myshopify.com'
+
+jobs:
+  audit-store:
+    name: Audit Shopify Store
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout is only needed if using a local action path
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Run the nano-sre audit action
+      - name: Run Store Audit
+        id: audit
+        uses: ./.github/action  # Use local action for testing
+        # For production use: shopintegrations/nano-sre-action@v1
+        with:
+          store_url: ${{ github.event.inputs.store_url || vars.STORE_URL || 'https://example.myshopify.com' }}
+          llm_api_key: ${{ secrets.LLM_API_KEY }}
+          alert_webhook: ${{ secrets.ALERT_WEBHOOK_URL }}
+      
+      # Example: Use the audit status output
+      - name: Check Audit Results
+        if: always()
+        run: |
+          echo "Audit Status: ${{ steps.audit.outputs.status }}"
+          if [ "${{ steps.audit.outputs.status }}" = "FAIL" ]; then
+            echo "::warning::Store audit detected failures!"
+          fi
+      
+      # The report artifact is automatically uploaded by the action
+      # You can download it in subsequent jobs or steps if needed
+      - name: Display Artifact Info
+        if: always()
+        run: |
+          echo "Report artifact will be available as: nano-sre-report"
+          echo "Report path: ${{ steps.audit.outputs.report_path }}"
