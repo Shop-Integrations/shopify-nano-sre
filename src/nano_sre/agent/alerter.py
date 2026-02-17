@@ -141,7 +141,7 @@ class Alerter:
         color = self._get_status_color(skill_result.status)
         emoji = self._get_status_emoji(skill_result.status)
 
-        embed = {
+        embed: dict[str, Any] = {
             "title": f"{emoji} {skill_result.skill_name}",
             "description": skill_result.summary,
             "color": color,

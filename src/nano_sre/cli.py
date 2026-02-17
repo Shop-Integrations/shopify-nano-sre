@@ -60,7 +60,7 @@ async def _run_audit(url: str, output: Optional[str] = None):
     try:
         # Create settings with the provided URL
         # Note: LLM settings are not required for PixelAuditor
-        settings = Settings(store_url=url)
+        settings = Settings.model_validate({"store_url": url})
 
         # Create agent
         agent = Agent(settings)

@@ -58,7 +58,7 @@ class VisualAuditor(Skill):
         Returns:
             SkillResult with comparison results and LLM assessment
         """
-        page: Page = context.get("page")
+        page = context.get("page")
         base_url: str = context.get("base_url", "")
 
         if not page:
@@ -150,7 +150,7 @@ class VisualAuditor(Skill):
         await page.screenshot(path=str(current_path), full_page=True)
         logger.info(f"Captured screenshot: {current_path}")
 
-        result = {
+        result: dict[str, Any] = {
             "screenshot_path": str(current_path),
             "baseline_path": str(baseline_path),
         }
@@ -294,10 +294,10 @@ class VisualAuditor(Skill):
                 max_tokens=500,
             )
 
-            assessment = response.choices[0].message.content
+            assessment = response.choices[0].message.content or ""
             logger.info(f"LLM assessment for {page_path}: {assessment}")
 
-            return assessment
+            return str(assessment)
 
         except Exception as e:
             logger.exception(f"Error getting LLM assessment: {e}")

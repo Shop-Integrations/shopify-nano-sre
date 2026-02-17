@@ -40,8 +40,8 @@ class HeadlessProbeSkill(Skill):
         Returns:
             SkillResult with PASS/WARN/FAIL status and details.
         """
-        page: Page = context.get("page")
-        url: str = context.get("url")
+        page = context.get("page")
+        url = context.get("url")
 
         if not page or not url:
             return SkillResult(
@@ -263,7 +263,7 @@ class HeadlessProbeSkill(Skill):
         Returns:
             List of staleness issues found
         """
-        issues = []
+        issues: list[dict[str, str]] = []
         current_url = page.url
 
         # Only check if we're on a product page

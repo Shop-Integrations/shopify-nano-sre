@@ -336,7 +336,7 @@ class PixelAuditor(Skill):
         total_errors = len(self.validation_errors)
 
         # Count events by type
-        event_counts = {}
+        event_counts: dict[str, int] = {}
         for event in self.tracked_events:
             event_name = event.get("event", "unknown")
             event_counts[event_name] = event_counts.get(event_name, 0) + 1
