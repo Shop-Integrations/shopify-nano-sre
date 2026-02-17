@@ -25,6 +25,11 @@ jobs:
     name: Audit Shopify Store
     runs-on: ubuntu-latest
     
+    # Limit permissions for security
+    permissions:
+      contents: read
+      actions: read
+    
     steps:
       # Checkout is only needed if using a local action path
       - name: Checkout repository
