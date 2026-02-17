@@ -1,0 +1,223 @@
+version: '3.8'
+
+services:
+  # Main Nano-SRE monitoring service
+  nano-sre:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: shopify-nano-sre
+    restart: unless-stopped
+    
+    # Environment variables from .env file
+    env_file:
+      - .env
+    
+    # Environment overrides (optional)
+    environment:
+      # Force headless mode in Docker
+      - HEADLESS=true
+      # Use container-friendly paths
+      - SQLITE_DB_PATH=/data/nano_sre.db
+    
+    # Volume mounts for persistent data
+    volumes:
+      # Persistent database storage
+      - nano-sre-data:/data
+      # Reports and artifacts
+      - nano-sre-reports:/app/reports
+      # Optional: Custom configuration
+      # - ./config:/app/config:ro
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network configuration
+    networks:
+      - nano-sre-network
+
+  # Optional: Ollama service for local LLM (free alternative to OpenAI)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    
+    # Expose Ollama API
+    ports:
+      - "11434:11434"
+    
+    # Volume for model storage
+    volumes:
+      - ollama-models:/root/.ollama
+    
+    # Resource limits for LLM
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '2.0'
+          memory: 4G
+    
+    networks:
+      - nano-sre-network
+    
+    # Uncomment if you have NVIDIA GPU
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+
+  # Optional: Web dashboard (coming in future releases)
+  # dashboard:
+  #   image: shopify-nano-sre-dashboard:latest
+  #   container_name: nano-sre-dashboard
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - DATABASE_URL=sqlite:///data/nano_sre.db
+  #   volumes:
+  #     - nano-sre-data:/data:ro
+  #   networks:
+  #     - nano-sre-network
+  #   depends_on:
+  #     - nano-sre
+
+networks:
+  nano-sre-network:
+    driver: bridge
+
+volumes:
+  # Persistent storage for monitoring data
+  nano-sre-data:
+    driver: local
+  
+  # Persistent storage for reports
+  nano-sre-reports:
+    driver: local
+  
+  # Ollama model storage (if using local LLM)
+  ollama-models:
+    driver: local
+
+# ============================================
+# USAGE INSTRUCTIONS
+# ============================================
+#
+# Quick Start:
+# ------------
+# 1. Copy environment file:
+#    cp .env.docker.example .env
+#
+# 2. Edit .env with your configuration
+#
+# 3. Start services:
+#    docker-compose up -d
+#
+# 4. View logs:
+#    docker-compose logs -f nano-sre
+#
+# 5. Stop services:
+#    docker-compose down
+#
+# Using Ollama (Free Local LLM):
+# ------------------------------
+# 1. Start Ollama service:
+#    docker-compose up -d ollama
+#
+# 2. Pull a model:
+#    docker exec -it ollama ollama pull mistral
+#
+# 3. Update .env:
+#    LLM_PROVIDER=ollama
+#    LLM_MODEL=mistral
+#    OLLAMA_BASE_URL=http://ollama:11434
+#
+# 4. Start monitoring:
+#    docker-compose up -d nano-sre
+#
+# Viewing Reports:
+# ----------------
+# Reports are stored in the nano-sre-reports volume:
+#    docker-compose exec nano-sre ls /app/reports
+#
+# To copy reports to host:
+#    docker cp shopify-nano-sre:/app/reports ./local-reports
+#
+# Accessing the Database:
+# -----------------------
+# The SQLite database is in nano-sre-data volume:
+#    docker-compose exec nano-sre sqlite3 /data/nano_sre.db
+#
+# Scaling for Multiple Stores:
+# -----------------------------
+# Create separate compose files for each store:
+#    docker-compose -f docker-compose.store1.yml up -d
+#    docker-compose -f docker-compose.store2.yml up -d
+#
+# Or use environment variable override:
+#    STORE_URL=https://store1.myshopify.com docker-compose up -d store1
+#    STORE_URL=https://store2.myshopify.com docker-compose up -d store2
+#
+# Troubleshooting:
+# ----------------
+# Check container status:
+#    docker-compose ps
+#
+# View detailed logs:
+#    docker-compose logs -f --tail=100 nano-sre
+#
+# Restart service:
+#    docker-compose restart nano-sre
+#
+# Rebuild after code changes:
+#    docker-compose build --no-cache
+#    docker-compose up -d
+#
+# Clean up volumes (WARNING: deletes data):
+#    docker-compose down -v
+#
+# Resource Monitoring:
+# --------------------
+# Monitor resource usage:
+#    docker stats shopify-nano-sre
+#
+# Check container health:
+#    docker inspect --format='{{.State.Health.Status}}' shopify-nano-sre
+#
+# Production Deployment:
+# ----------------------
+# For production, consider:
+# 1. Use specific image tags instead of 'latest'
+# 2. Set up log aggregation (ELK, Splunk, etc.)
+# 3. Configure external monitoring (Prometheus, Grafana)
+# 4. Use secrets management (Docker Swarm secrets, Kubernetes secrets)
+# 5. Set up automated backups of volumes
+# 6. Configure reverse proxy (nginx, Traefik) if exposing ports
+# 7. Implement container orchestration (Kubernetes, Docker Swarm)
+# 8. Set up alerting integration
+# 9. Regular security scanning of images
+# 10. Implement blue-green or rolling deployments
