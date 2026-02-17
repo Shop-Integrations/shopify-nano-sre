@@ -4,9 +4,10 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import sqlite_utils
+from sqlite_utils.db import Table
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ class Store:
         """Initialize database tables if they don't exist."""
         # Check runs table
         if "check_runs" not in self.db.table_names():
-            self.db["check_runs"].create(
+            check_runs = self._table("check_runs")
+            check_runs.create(
                 {
                     "id": int,
                     "timestamp": str,
@@ -38,7 +40,7 @@ class Store:
                 },
                 pk="id",
             )
-            self.db["check_runs"].create_index(
+            check_runs.create_index(
                 ["timestamp", "store_url", "skill_name"],
                 index_name="idx_check_runs",
                 if_not_exists=True,
@@ -46,7 +48,8 @@ class Store:
 
         # Baselines table
         if "baselines" not in self.db.table_names():
-            self.db["baselines"].create(
+            baselines = self._table("baselines")
+            baselines.create(
                 {
                     "id": int,
                     "skill_name": str,
@@ -57,7 +60,7 @@ class Store:
                 },
                 pk="id",
             )
-            self.db["baselines"].create_index(
+            baselines.create_index(
                 ["skill_name", "store_url"],
                 index_name="idx_baselines",
                 unique=True,
@@ -66,7 +69,8 @@ class Store:
 
         # Incidents table
         if "incidents" not in self.db.table_names():
-            self.db["incidents"].create(
+            incidents = self._table("incidents")
+            incidents.create(
                 {
                     "id": int,
                     "created_at": str,
@@ -80,11 +84,22 @@ class Store:
                 },
                 pk="id",
             )
-            self.db["incidents"].create_index(
+            incidents.create_index(
                 ["store_url", "status"],
                 index_name="idx_incidents",
                 if_not_exists=True,
             )
+
+    def _table(self, name: str) -> Table:
+        """Return a typed table instance for mypy."""
+        return cast(Table, self.db.table(name))
+
+    def _ensure_last_pk(self, result: Any, action: str) -> int:
+        """Return a valid primary key from an insert result."""
+        last_pk = getattr(result, "last_pk", None)
+        if last_pk is None:
+            raise ValueError(f"Insert did not return a primary key for {action}")
+        return int(last_pk)
 
     def record_check(
         self,
@@ -111,7 +126,7 @@ class Store:
         Returns:
             ID of the recorded check run.
         """
-        row = {
+        row: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat(),
             "store_url": store_url,
             "skill_name": skill_name,
@@ -121,9 +136,9 @@ class Store:
             "screenshots": json.dumps(screenshots or []),
             "error": error,
         }
-        result = self.db["check_runs"].insert(row)
+        result = self._table("check_runs").insert(row)
         logger.info(f"Recorded check run: {skill_name} -> {status}")
-        return result.last_pk
+        return self._ensure_last_pk(result, "check_runs")
 
     def get_latest_baseline(self, skill_name: str, store_url: str) -> Optional[dict[str, Any]]:
         """
@@ -136,7 +151,7 @@ class Store:
         Returns:
             Baseline data dict or None if not found.
         """
-        row = self.db["baselines"].rows_where(
+        row = self._table("baselines").rows_where(
             "skill_name = ? AND store_url = ?",
             [skill_name, store_url],
             order_by="-updated_at",
@@ -146,7 +161,9 @@ class Store:
         if rows_list:
             baseline_data = rows_list[0].get("baseline_data")
             if baseline_data:
-                return json.loads(baseline_data)
+                data = json.loads(baseline_data)
+                if isinstance(data, dict):
+                    return data
         return None
 
     def update_baseline(
@@ -165,14 +182,14 @@ class Store:
         """
         now = datetime.utcnow().isoformat()
         existing = list(
-            self.db["baselines"].rows_where(
+            self._table("baselines").rows_where(
                 "skill_name = ? AND store_url = ?",
                 [skill_name, store_url],
                 limit=1,
             )
         )
 
-        row = {
+        row: dict[str, Any] = {
             "skill_name": skill_name,
             "store_url": store_url,
             "baseline_data": json.dumps(baseline_data),
@@ -181,13 +198,14 @@ class Store:
 
         if existing:
             row["created_at"] = existing[0]["created_at"]
-            row["id"] = existing[0]["id"]
-            self.db["baselines"].update(row["id"], row)
-            result_id = row["id"]
+            existing_id = int(existing[0]["id"])
+            row["id"] = existing_id
+            self._table("baselines").update(existing_id, row)
+            result_id = existing_id
         else:
             row["created_at"] = now
-            result = self.db["baselines"].insert(row)
-            result_id = result.last_pk
+            result = self._table("baselines").insert(row)
+            result_id = self._ensure_last_pk(result, "baselines")
 
         logger.info(f"Updated baseline: {skill_name} for {store_url}")
         return result_id
@@ -213,7 +231,7 @@ class Store:
         Returns:
             ID of the new incident.
         """
-        row = {
+        row: dict[str, Any] = {
             "created_at": datetime.utcnow().isoformat(),
             "resolved_at": None,
             "store_url": store_url,
@@ -223,9 +241,9 @@ class Store:
             "details": json.dumps(details or {}),
             "status": "open",
         }
-        result = self.db["incidents"].insert(row)
+        result = self._table("incidents").insert(row)
         logger.info(f"Created incident: {title} (severity: {severity})")
-        return result.last_pk
+        return self._ensure_last_pk(result, "incidents")
 
     def resolve_incident(self, incident_id: int) -> None:
         """
@@ -234,7 +252,7 @@ class Store:
         Args:
             incident_id: ID of the incident.
         """
-        self.db["incidents"].update(
+        self._table("incidents").update(
             incident_id,
             {
                 "resolved_at": datetime.utcnow().isoformat(),
@@ -254,13 +272,13 @@ class Store:
             List of incident records.
         """
         if store_url:
-            rows = self.db["incidents"].rows_where(
+            rows = self._table("incidents").rows_where(
                 "status = ? AND store_url = ?",
                 ["open", store_url],
                 order_by="-created_at",
             )
         else:
-            rows = self.db["incidents"].rows_where(
+            rows = self._table("incidents").rows_where(
                 "status = ?",
                 ["open"],
                 order_by="-created_at",
@@ -278,7 +296,7 @@ class Store:
         Returns:
             List of check run records.
         """
-        rows = self.db["check_runs"].rows_where(
+        rows = self._table("check_runs").rows_where(
             "store_url = ?",
             [store_url],
             order_by="-timestamp",

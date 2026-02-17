@@ -88,4 +88,4 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Factory function to get settings instance."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
