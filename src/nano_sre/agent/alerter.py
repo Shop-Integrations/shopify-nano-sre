@@ -28,9 +28,7 @@ class AlertRateLimiter:
     cache: dict[str, datetime] = field(default_factory=dict)
     default_cooldown_seconds: int = 3600  # 1 hour default
 
-    def should_send_alert(
-        self, alert_key: str, cooldown_seconds: Optional[int] = None
-    ) -> bool:
+    def should_send_alert(self, alert_key: str, cooldown_seconds: Optional[int] = None) -> bool:
         """
         Check if an alert should be sent based on rate limiting.
 
@@ -143,7 +141,7 @@ class Alerter:
         color = self._get_status_color(skill_result.status)
         emoji = self._get_status_emoji(skill_result.status)
 
-        embed = {
+        embed: dict[str, Any] = {
             "title": f"{emoji} {skill_result.skill_name}",
             "description": skill_result.summary,
             "color": color,
@@ -191,9 +189,7 @@ class Alerter:
         # Note: Screenshot attachments would require uploading to a hosting service
         # and including the URL in the embed's image field. This is a basic implementation.
         if skill_result.screenshots:
-            logger.debug(
-                f"Screenshots available but not attached: {len(skill_result.screenshots)}"
-            )
+            logger.debug(f"Screenshots available but not attached: {len(skill_result.screenshots)}")
 
         return payload
 
@@ -287,15 +283,11 @@ class Alerter:
 
         # Note: Screenshots would require uploading and including in image blocks
         if skill_result.screenshots:
-            logger.debug(
-                f"Screenshots available but not attached: {len(skill_result.screenshots)}"
-            )
+            logger.debug(f"Screenshots available but not attached: {len(skill_result.screenshots)}")
 
         return payload
 
-    def _format_stdout(
-        self, skill_result: SkillResult, store_url: Optional[str] = None
-    ) -> str:
+    def _format_stdout(self, skill_result: SkillResult, store_url: Optional[str] = None) -> str:
         """
         Format alert for stdout output.
 
@@ -385,9 +377,7 @@ class Alerter:
                     response = await self.http_client.post(webhook_url, json=payload)
 
                 if response.status_code in (200, 204):
-                    logger.info(
-                        f"Alert sent to Discord for {skill_result.skill_name}"
-                    )
+                    logger.info(f"Alert sent to Discord for {skill_result.skill_name}")
                     return True
                 else:
                     logger.error(
@@ -408,14 +398,10 @@ class Alerter:
                     response = await self.http_client.post(webhook_url, json=payload)
 
                 if response.status_code == 200:
-                    logger.info(
-                        f"Alert sent to Slack for {skill_result.skill_name}"
-                    )
+                    logger.info(f"Alert sent to Slack for {skill_result.skill_name}")
                     return True
                 else:
-                    logger.error(
-                        f"Slack webhook failed: {response.status_code} - {response.text}"
-                    )
+                    logger.error(f"Slack webhook failed: {response.status_code} - {response.text}")
                     return False
 
             else:

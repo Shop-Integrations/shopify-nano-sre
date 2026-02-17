@@ -23,6 +23,7 @@ wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
+src/shopify_nano_sre.egg-info
 .installed.cfg
 *.egg
 MANIFEST

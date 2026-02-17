@@ -1,6 +1,5 @@
 """MCP Advisor skill for querying Shopify Dev MCP."""
 
-import json
 import logging
 from typing import Any, Optional
 
@@ -12,12 +11,12 @@ logger = logging.getLogger(__name__)
 class MCPAdvisor(Skill):
     """
     Query Shopify Dev MCP for console/API errors and deprecations.
-    
+
     This skill attempts to connect to the Shopify Dev MCP server to:
     - Explain API errors and provide documentation links
     - Check for deprecation notices
     - Offer recommended fixes and best practices
-    
+
     Gracefully skips if MCP is not configured or unavailable.
     """
 
@@ -38,7 +37,7 @@ class MCPAdvisor(Skill):
         try:
             # Check if MCP is configured
             mcp_available = await self._check_mcp_availability(context)
-            
+
             if not mcp_available:
                 return SkillResult(
                     skill_name=self.name(),
@@ -53,7 +52,7 @@ class MCPAdvisor(Skill):
             # Extract errors from context
             console_errors = context.get("console_errors", [])
             api_errors = context.get("api_errors", [])
-            
+
             if not console_errors and not api_errors:
                 return SkillResult(
                     skill_name=self.name(),
@@ -70,7 +69,7 @@ class MCPAdvisor(Skill):
             )
 
             status = "WARN" if recommendations.get("issues_found") else "PASS"
-            
+
             return SkillResult(
                 skill_name=self.name(),
                 status=status,
@@ -146,7 +145,7 @@ class MCPAdvisor(Skill):
         for error in console_errors:
             error_text = error.get("text", "")
             error_type = error.get("type", "")
-            
+
             try:
                 # Query MCP for this error
                 # This is a placeholder - actual MCP client interface would be used
@@ -155,21 +154,23 @@ class MCPAdvisor(Skill):
                     error_text=error_text,
                     error_type=error_type,
                 )
-                
+
                 if result:
                     recommendations["items"].append(result)
                     recommendations["issues_found"] = True
-                    
+
                     if result.get("documentation_link"):
                         recommendations["docs"].append(result["documentation_link"])
-                    
+
                     if result.get("is_deprecated"):
-                        recommendations["deprecations"].append({
-                            "feature": result.get("feature"),
-                            "deprecation_date": result.get("deprecation_date"),
-                            "replacement": result.get("replacement"),
-                        })
-                        
+                        recommendations["deprecations"].append(
+                            {
+                                "feature": result.get("feature"),
+                                "deprecation_date": result.get("deprecation_date"),
+                                "replacement": result.get("replacement"),
+                            }
+                        )
+
             except Exception as e:
                 logger.warning(f"Failed to query MCP for console error: {e}")
 
@@ -178,7 +179,7 @@ class MCPAdvisor(Skill):
             error_code = error.get("code")
             error_message = error.get("message", "")
             api_version = error.get("api_version")
-            
+
             try:
                 result = await self._mcp_explain_api_error(
                     mcp_client,
@@ -186,22 +187,24 @@ class MCPAdvisor(Skill):
                     error_message=error_message,
                     api_version=api_version,
                 )
-                
+
                 if result:
                     recommendations["items"].append(result)
                     recommendations["issues_found"] = True
-                    
+
                     if result.get("documentation_link"):
                         recommendations["docs"].append(result["documentation_link"])
-                    
+
                     if result.get("is_deprecated"):
-                        recommendations["deprecations"].append({
-                            "api_field": result.get("field"),
-                            "deprecation_date": result.get("deprecation_date"),
-                            "replacement": result.get("replacement"),
-                            "migration_guide": result.get("migration_guide"),
-                        })
-                        
+                        recommendations["deprecations"].append(
+                            {
+                                "api_field": result.get("field"),
+                                "deprecation_date": result.get("deprecation_date"),
+                                "replacement": result.get("replacement"),
+                                "migration_guide": result.get("migration_guide"),
+                            }
+                        )
+
             except Exception as e:
                 logger.warning(f"Failed to query MCP for API error: {e}")
 
@@ -226,7 +229,7 @@ class MCPAdvisor(Skill):
         """
         # Placeholder for actual MCP query implementation
         # This would use the MCP client's API to query Shopify Dev docs
-        
+
         # Example structure of what would be returned:
         # return {
         #     "error": error_text,
@@ -235,7 +238,7 @@ class MCPAdvisor(Skill):
         #     "documentation_link": "https://shopify.dev/...",
         #     "is_deprecated": False,
         # }
-        
+
         # For now, return None as placeholder
         logger.debug(f"MCP query for error: {error_text} (type: {error_type})")
         return None
@@ -260,7 +263,7 @@ class MCPAdvisor(Skill):
             Dictionary with explanation and recommendations, or None.
         """
         # Placeholder for actual MCP query implementation
-        
+
         # Example query: "Explain the error 'Field sku doesn't exist' for API version 2025-01"
         # Example response structure:
         # return {
@@ -275,10 +278,9 @@ class MCPAdvisor(Skill):
         #     "replacement": "Use variants.sku instead",
         #     "migration_guide": "https://shopify.dev/changelog/...",
         # }
-        
+
         logger.debug(
-            f"MCP query for API error: {error_message} "
-            f"(code: {error_code}, version: {api_version})"
+            f"MCP query for API error: {error_message} (code: {error_code}, version: {api_version})"
         )
         return None
 
@@ -297,10 +299,10 @@ class MCPAdvisor(Skill):
 
         item_count = len(recommendations.get("items", []))
         deprecation_count = len(recommendations.get("deprecations", []))
-        
+
         parts = [f"Found {item_count} issue(s)"]
-        
+
         if deprecation_count > 0:
             parts.append(f"{deprecation_count} deprecation(s)")
-        
+
         return ", ".join(parts)

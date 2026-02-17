@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -37,13 +38,21 @@ def main(ctx, report_dir):
     required=True,
     help="URL of the Shopify store to audit (e.g., https://your-store.myshopify.com)",
 )
-def audit(url: str):
+@click.option(
+    "--output",
+    required=False,
+    help="Path to save the audit report as JSON",
+)
+def audit(url: str, output: Optional[str]):
     """Run an audit on the specified Shopify store URL."""
-    asyncio.run(_run_audit(url))
+    asyncio.run(_run_audit(url, output))
 
 
-async def _run_audit(url: str):
+async def _run_audit(url: str, output: Optional[str] = None):
     """Execute the audit asynchronously."""
+    import json
+    from pathlib import Path
+
     from playwright.async_api import async_playwright
 
     console.print(f"[bold blue]Starting audit for:[/bold blue] {url}")
@@ -51,7 +60,7 @@ async def _run_audit(url: str):
     try:
         # Create settings with the provided URL
         # Note: LLM settings are not required for PixelAuditor
-        settings = Settings(store_url=url)
+        settings = Settings.model_validate({"store_url": url})
 
         # Create agent
         agent = Agent(settings)
@@ -75,6 +84,30 @@ async def _run_audit(url: str):
 
                 # Display results
                 _display_results(results)
+
+                # Save to JSON if output path is specified
+                if output:
+                    output_path = Path(output)
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Convert results to serializable format
+                    report_data = {
+                        "url": url,
+                        "results": [
+                            {
+                                "skill_name": r.skill_name,
+                                "status": r.status,
+                                "summary": r.summary,
+                                "details": r.details,
+                            }
+                            for r in results
+                        ],
+                    }
+
+                    with open(output_path, "w") as f:
+                        json.dump(report_data, f, indent=2)
+
+                    console.print(f"\n[green]Report saved to:[/green] {output}")
 
             finally:
                 await browser.close()

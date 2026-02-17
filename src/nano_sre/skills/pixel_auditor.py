@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class PixelAuditor(Skill):
     """
     Monitors analytics pixels and validates tracking events.
-    
+
     Tracks:
     - page_view, view_item, add_to_cart, begin_checkout, purchase events
     - Validates payload fields (value, currency, transaction_id)
@@ -26,7 +26,7 @@ class PixelAuditor(Skill):
     def __init__(self, mock_mode: bool = False):
         """
         Initialize the PixelAuditor.
-        
+
         Args:
             mock_mode: If True, enables mock store verification mode for testing
         """
@@ -46,10 +46,10 @@ class PixelAuditor(Skill):
     async def run(self, context: dict[str, Any]) -> SkillResult:
         """
         Execute pixel auditing and return health report.
-        
+
         Args:
             context: Agent context containing 'page' (Playwright Page object)
-        
+
         Returns:
             SkillResult with pixel health report
         """
@@ -99,21 +99,21 @@ class PixelAuditor(Skill):
     async def _inject_analytics_hook(self, page: Page) -> None:
         """
         Inject JavaScript to hook Shopify.analytics API.
-        
+
         Intercepts calls to track analytics events.
         """
         hook_script = """
         (function() {
             // Store original analytics object
             const originalAnalytics = window.Shopify?.analytics;
-            
+
             // Create tracked events array
             window._pixelAuditorEvents = [];
-            
+
             // Hook Shopify.analytics.publish if it exists
             if (window.Shopify && window.Shopify.analytics) {
                 const originalPublish = window.Shopify.analytics.publish;
-                
+
                 window.Shopify.analytics.publish = function(eventName, data) {
                     // Capture event
                     window._pixelAuditorEvents.push({
@@ -121,14 +121,14 @@ class PixelAuditor(Skill):
                         data: data || {},
                         timestamp: Date.now()
                     });
-                    
+
                     // Call original function
                     if (originalPublish) {
                         return originalPublish.call(this, eventName, data);
                     }
                 };
             }
-            
+
             // Also hook common analytics patterns
             ['page_view', 'view_item', 'add_to_cart', 'begin_checkout', 'purchase'].forEach(eventType => {
                 const originalHandler = window[eventType];
@@ -151,52 +151,58 @@ class PixelAuditor(Skill):
     async def _intercept_request(self, route: Route) -> None:
         """
         Intercept network requests to detect pixel hits.
-        
+
         Captures requests to Facebook Pixel, Google Analytics, TikTok Pixel.
         """
         request = route.request
         url = request.url
-        
+
         # Continue the request
         await route.continue_()
-        
+
         # Detect pixel hits
         parsed = urlparse(url)
-        
+
         # Facebook Pixel
         if "facebook.com" in parsed.netloc and ("/tr" in parsed.path or "/pixel" in parsed.path):
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["facebook"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["facebook"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"Facebook pixel hit: {url}")
-        
+
         # Google Analytics (GA4 or Universal)
         elif "google-analytics.com" in parsed.netloc or "analytics.google.com" in parsed.netloc:
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["google_analytics"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["google_analytics"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"Google Analytics hit: {url}")
-        
+
         # TikTok Pixel
         elif "tiktok.com" in parsed.netloc and "/pixel" in parsed.path:
             query_params = parse_qs(parsed.query)
-            self.pixel_hits["tiktok"].append({
-                "url": url,
-                "params": query_params,
-                "timestamp": asyncio.get_event_loop().time(),
-            })
+            self.pixel_hits["tiktok"].append(
+                {
+                    "url": url,
+                    "params": query_params,
+                    "timestamp": asyncio.get_event_loop().time(),
+                }
+            )
             logger.debug(f"TikTok pixel hit: {url}")
 
     async def _inject_mock_events(self, page: Page) -> None:
         """
         Inject mock analytics events for testing.
-        
+
         Simulates common e-commerce events.
         """
         mock_events = [
@@ -237,7 +243,7 @@ class PixelAuditor(Skill):
                 },
             },
         ]
-        
+
         for event in mock_events:
             await page.evaluate(
                 f"""
@@ -246,7 +252,7 @@ class PixelAuditor(Skill):
                 }}
                 """
             )
-        
+
         logger.info(f"Injected {len(mock_events)} mock events")
 
     async def _collect_tracked_events(self, page: Page) -> None:
@@ -261,7 +267,7 @@ class PixelAuditor(Skill):
     def _validate_events(self) -> None:
         """
         Validate tracked analytics events.
-        
+
         Checks for required fields based on event type:
         - purchase: value, currency, transaction_id
         - add_to_cart/begin_checkout: value, currency
@@ -274,68 +280,70 @@ class PixelAuditor(Skill):
             "view_item": ["value", "currency"],
             "page_view": [],
         }
-        
+
         for event in self.tracked_events:
             event_name = event.get("event", "unknown")
             event_data = event.get("data", {})
-            
+
             if event_name in required_fields:
                 missing_fields = []
                 for field in required_fields[event_name]:
                     if field not in event_data or event_data[field] is None:
                         missing_fields.append(field)
-                
+
                 if missing_fields:
-                    self.validation_errors.append({
-                        "event": event_name,
-                        "error": f"Missing required fields: {', '.join(missing_fields)}",
-                        "data": event_data,
-                    })
-                    logger.warning(
-                        f"Event {event_name} missing fields: {missing_fields}"
+                    self.validation_errors.append(
+                        {
+                            "event": event_name,
+                            "error": f"Missing required fields: {', '.join(missing_fields)}",
+                            "data": event_data,
+                        }
                     )
-                
+                    logger.warning(f"Event {event_name} missing fields: {missing_fields}")
+
                 # Validate currency format (should be 3-letter ISO code)
                 if "currency" in event_data:
                     currency = event_data["currency"]
                     if not isinstance(currency, str) or len(currency) != 3:
-                        self.validation_errors.append({
-                            "event": event_name,
-                            "error": f"Invalid currency format: {currency}",
-                            "data": event_data,
-                        })
-                
+                        self.validation_errors.append(
+                            {
+                                "event": event_name,
+                                "error": f"Invalid currency format: {currency}",
+                                "data": event_data,
+                            }
+                        )
+
                 # Validate value is numeric
                 if "value" in event_data:
                     value = event_data["value"]
                     if not isinstance(value, (int, float)):
-                        self.validation_errors.append({
-                            "event": event_name,
-                            "error": f"Invalid value type: {type(value).__name__}",
-                            "data": event_data,
-                        })
+                        self.validation_errors.append(
+                            {
+                                "event": event_name,
+                                "error": f"Invalid value type: {type(value).__name__}",
+                                "data": event_data,
+                            }
+                        )
 
     def _generate_health_report(self) -> SkillResult:
         """
         Generate pixel health report.
-        
+
         Returns:
             SkillResult with comprehensive health status
         """
         total_events = len(self.tracked_events)
         total_errors = len(self.validation_errors)
-        
+
         # Count events by type
-        event_counts = {}
+        event_counts: dict[str, int] = {}
         for event in self.tracked_events:
             event_name = event.get("event", "unknown")
             event_counts[event_name] = event_counts.get(event_name, 0) + 1
-        
+
         # Count pixel hits by platform
-        pixel_status = {
-            platform: len(hits) for platform, hits in self.pixel_hits.items()
-        }
-        
+        pixel_status = {platform: len(hits) for platform, hits in self.pixel_hits.items()}
+
         # Determine overall status
         if total_errors > 0:
             status = "WARN" if total_errors < total_events / 2 else "FAIL"
@@ -346,7 +354,7 @@ class PixelAuditor(Skill):
         else:
             status = "PASS"
             summary = f"Pixel Health: All {total_events} events validated successfully"
-        
+
         details = {
             "total_events": total_events,
             "event_counts": event_counts,
@@ -355,12 +363,11 @@ class PixelAuditor(Skill):
             "pixel_details": self.pixel_hits,
             "mock_mode": self.mock_mode,
         }
-        
+
         logger.info(
-            f"Pixel audit complete: {total_events} events, "
-            f"{total_errors} errors, status={status}"
+            f"Pixel audit complete: {total_events} events, {total_errors} errors, status={status}"
         )
-        
+
         return SkillResult(
             skill_name=self.name(),
             status=status,

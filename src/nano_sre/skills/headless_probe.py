@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 from playwright.async_api import Page, Response
@@ -40,8 +40,8 @@ class HeadlessProbeSkill(Skill):
         Returns:
             SkillResult with PASS/WARN/FAIL status and details.
         """
-        page: Page = context.get("page")
-        url: str = context.get("url")
+        page = context.get("page")
+        url = context.get("url")
 
         if not page or not url:
             return SkillResult(
@@ -158,9 +158,7 @@ class HeadlessProbeSkill(Skill):
             page.remove_listener("console", handle_console)
             page.remove_listener("response", handle_response)
 
-    async def _check_rate_limits(
-        self, api_responses: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    async def _check_rate_limits(self, api_responses: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Check for rate-limit responses (429) and retry headers.
 
@@ -265,7 +263,7 @@ class HeadlessProbeSkill(Skill):
         Returns:
             List of staleness issues found
         """
-        issues = []
+        issues: list[dict[str, str]] = []
         current_url = page.url
 
         # Only check if we're on a product page
@@ -285,9 +283,7 @@ class HeadlessProbeSkill(Skill):
                     dom_price = await self._extract_price_from_dom(page)
 
                     # Get price from API
-                    api_price = await self._fetch_product_price_from_api(
-                        product_handle, context
-                    )
+                    api_price = await self._fetch_product_price_from_api(product_handle, context)
 
                     if dom_price and api_price:
                         # Compare prices (allow small floating point differences)
@@ -316,8 +312,8 @@ class HeadlessProbeSkill(Skill):
         try:
             # Common price selectors for Shopify themes
             price_selectors = [
-                '[data-price]',
-                '.price',
+                "[data-price]",
+                ".price",
                 '[class*="price"]',
                 '[data-testid="price"]',
                 'meta[property="product:price:amount"]',
@@ -384,9 +380,7 @@ class HeadlessProbeSkill(Skill):
                     product = data.get("data", {}).get("product")
                     if product:
                         amount = (
-                            product.get("priceRange", {})
-                            .get("minVariantPrice", {})
-                            .get("amount")
+                            product.get("priceRange", {}).get("minVariantPrice", {}).get("amount")
                         )
                         if amount:
                             return float(amount)

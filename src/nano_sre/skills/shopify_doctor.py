@@ -67,9 +67,7 @@ class ShopifyDoctorSkill(Skill):
 
             if admin_api_key:
                 logger.info("Admin API key configured, performing API checks")
-                api_results = await self._check_admin_api(
-                    settings.store_url_str, admin_api_key
-                )
+                api_results = await self._check_admin_api(settings.store_url_str, admin_api_key)
                 details.update(api_results.get("details", {}))
                 issues.extend(api_results.get("issues", []))
                 warnings.extend(api_results.get("warnings", []))
@@ -85,9 +83,7 @@ class ShopifyDoctorSkill(Skill):
             # Report console errors
             if console_errors:
                 details["console_errors"] = console_errors[:10]  # Limit to first 10
-                issues.append(
-                    f"Found {len(console_errors)} console error(s) on storefront"
-                )
+                issues.append(f"Found {len(console_errors)} console error(s) on storefront")
 
             # Remove listener
             page.remove_listener("console", handle_console)
@@ -123,9 +119,7 @@ class ShopifyDoctorSkill(Skill):
                 details={"console_errors": console_errors} if console_errors else {},
             )
 
-    async def _check_admin_api(
-        self, store_url: str, api_key: str
-    ) -> dict[str, Any]:
+    async def _check_admin_api(self, store_url: str, api_key: str) -> dict[str, Any]:
         """
         Check Shopify Admin API for store health.
 
@@ -201,9 +195,7 @@ class ShopifyDoctorSkill(Skill):
                         else:
                             warnings.append("No active theme found")
                     else:
-                        warnings.append(
-                            f"Theme API check failed with status {resp.status}"
-                        )
+                        warnings.append(f"Theme API check failed with status {resp.status}")
 
                 # Check 2: Published products with images and prices
                 products_query = """
@@ -234,9 +226,7 @@ class ShopifyDoctorSkill(Skill):
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        products = (
-                            data.get("data", {}).get("products", {}).get("edges", [])
-                        )
+                        products = data.get("data", {}).get("products", {}).get("edges", [])
 
                         products_without_images = []
                         products_without_prices = []
@@ -268,9 +258,7 @@ class ShopifyDoctorSkill(Skill):
 
                         details["total_products_checked"] = len(products)
                     else:
-                        warnings.append(
-                            f"Products API check failed with status {resp.status}"
-                        )
+                        warnings.append(f"Products API check failed with status {resp.status}")
 
                 # Check 3: Deprecated API versions
                 # Check the API version used in the URL and warn if it's old
