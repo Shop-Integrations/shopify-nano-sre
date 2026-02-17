@@ -1,0 +1,108 @@
+name: 'Shopify Nano-SRE Action'
+description: 'AI-powered monitoring for your Shopify store - runs synthetic checks and validates analytics pixels'
+author: 'Shop Integrations'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  store_url:
+    description: 'Shopify store URL to audit (e.g., https://your-store.myshopify.com)'
+    required: true
+  llm_api_key:
+    description: 'API key for LLM provider (OpenAI, Anthropic). Optional for basic checks.'
+    required: false
+  alert_webhook:
+    description: 'Webhook URL for alerts (Discord, Slack). Optional.'
+    required: false
+
+outputs:
+  status:
+    description: 'Overall health status (PASS, WARN, FAIL)'
+    value: ${{ steps.audit.outputs.status }}
+  report_path:
+    description: 'Path to the generated report artifact'
+    value: 'nano-sre-report.json'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install shopify-nano-sre
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install shopify-nano-sre
+
+    - name: Install Playwright browsers
+      shell: bash
+      run: playwright install --with-deps chromium
+
+    - name: Run nano-sre audit
+      id: audit
+      shell: bash
+      env:
+        STORE_URL: ${{ inputs.store_url }}
+        LLM_API_KEY: ${{ inputs.llm_api_key }}
+        ALERT_WEBHOOK_URL: ${{ inputs.alert_webhook }}
+      run: |
+        # Create output directory for reports
+        mkdir -p nano-sre-output
+        
+        # Run the audit command and capture output
+        set +e  # Don't exit on error, we need to process the results
+        nano-sre audit --url "$STORE_URL" --output nano-sre-output/report.json
+        audit_exit_code=$?
+        set -e
+        
+        # Parse the report to determine overall status
+        if [ -f nano-sre-output/report.json ]; then
+          # Extract status from report (check if any skill has FAIL status)
+          has_failures=$(python -c "
+        import json
+        import sys
+        try:
+            with open('nano-sre-output/report.json', 'r') as f:
+                report = json.load(f)
+            results = report.get('results', [])
+            has_fail = any(r.get('status') == 'FAIL' for r in results)
+            print('true' if has_fail else 'false')
+        except Exception as e:
+            print('true')  # Treat parse errors as failures
+            sys.exit(1)
+        ")
+          
+          # Set output status
+          if [ "$has_failures" = "true" ]; then
+            echo "status=FAIL" >> $GITHUB_OUTPUT
+            echo "❌ Audit completed with failures"
+            exit_code=1
+          else
+            echo "status=PASS" >> $GITHUB_OUTPUT
+            echo "✅ Audit completed successfully"
+            exit_code=0
+          fi
+        else
+          # No report file means the audit failed to run
+          echo "status=FAIL" >> $GITHUB_OUTPUT
+          echo "❌ Audit failed to generate report"
+          exit_code=1
+        fi
+        
+        # Exit with appropriate code
+        exit $exit_code
+
+    - name: Upload audit report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nano-sre-report
+        path: nano-sre-output/
+        retention-days: 30
+        if-no-files-found: warn
