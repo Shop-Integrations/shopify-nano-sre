@@ -156,14 +156,14 @@ class YourSkillName(Skill):
             # 1. Perform checks/monitoring
             # 2. Collect data
             # 3. Analyze results
-            
+
             # Example: Navigate to a page
             # await page.goto("https://example.com")
-            
+
             # Example: Collect some data
             data_collected = {}
             issues_found = []
-            
+
             # Determine status based on your checks
             if issues_found:
                 status = "FAIL"
@@ -280,20 +280,22 @@ Type checking settings in `mypy.ini`:
 ### Code Quality Best Practices
 
 1. **Type Hints**: Use type hints for function parameters and return values
+
    ```python
    async def process_data(input: dict[str, Any]) -> SkillResult:
        ...
    ```
 
 2. **Docstrings**: Write clear docstrings for all public functions and classes
+
    ```python
    def calculate_score(data: dict) -> float:
        """
        Calculate health score from monitoring data.
-       
+
        Args:
            data: Dictionary containing monitoring metrics
-           
+
        Returns:
            Health score between 0.0 and 1.0
        """
@@ -313,6 +315,7 @@ pre-commit run --all-files  # Run manually on all files
 ```
 
 The hooks will:
+
 1. Run `ruff check --fix` to auto-fix linting issues
 2. Run `ruff format` to format code
 3. Run `mypy` for type checking (excluding tests/)
@@ -402,7 +405,7 @@ class TestYourSkillName:
             "settings": mock_settings,
         }
         result = await skill.run(context)
-        
+
         assert isinstance(result, SkillResult)
         assert result.skill_name == "your_skill_name"
         assert result.status in ["PASS", "WARN", "FAIL"]
@@ -412,7 +415,7 @@ class TestYourSkillName:
         """Test skill handles missing page gracefully."""
         context = {}
         result = await skill.run(context)
-        
+
         assert result.status == "FAIL"
         assert "page" in result.summary.lower() or result.error
 
@@ -422,7 +425,7 @@ class TestYourSkillName:
         # Set up context that will cause an error
         context = {"page": "invalid"}
         result = await skill.run(context)
-        
+
         assert result.status == "FAIL"
         assert result.error is not None
 ```
@@ -491,13 +494,13 @@ pytest -m integration
    ```bash
    # Format code
    ruff format src/ tests/
-   
+
    # Check for linting issues
    ruff check src/ tests/
-   
+
    # Run type checker
    mypy src/nano_sre
-   
+
    # Run tests
    pytest -v
    ```
@@ -562,7 +565,7 @@ Your PR must:
 
 - **Project Documentation**: [README.md](README.md)
 - **Development Guide**: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-- **Security Policy**: [SECURITY.md](SECURITY.md)
+- **Security Policy**: [.github/SECURITY.md](.github/SECURITY.md)
 - **Issue Tracker**: [GitHub Issues](https://github.com/Shop-Integrations/shopify-nano-sre/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Shop-Integrations/shopify-nano-sre/discussions)
 

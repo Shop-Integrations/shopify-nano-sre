@@ -10,9 +10,12 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Shopify Nano-SRE Contributors"}
+    {name = "Shopify Nano-SRE Contributors", email = "oss@shopintegrations.com"}
 ]
-keywords = ["shopify", "monitoring", "ai", "playwright", "sre"]
+maintainers = [
+    {name = "SRE Team", email = "sre@shopintegrations.com"}
+]
+keywords = ["shopify", "monitoring", "ai", "playwright", "sre", "ecommerce"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -27,7 +30,6 @@ classifiers = [
     "Topic :: Software Development :: Testing",
     "Topic :: Internet :: WWW/HTTP",
 ]
-
 dependencies = [
     "playwright>=1.40.0",
     "pillow>=10.0.0",
@@ -39,6 +41,14 @@ dependencies = [
     "click>=8.0.0",
     "httpx>=0.25.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Shop-Integrations/shopify-nano-sre"
+Documentation = "https://github.com/Shop-Integrations/shopify-nano-sre/blob/main/docs/README.md"
+Repository = "https://github.com/Shop-Integrations/shopify-nano-sre"
+Issues = "https://github.com/Shop-Integrations/shopify-nano-sre/issues"
+Changelog = "https://github.com/Shop-Integrations/shopify-nano-sre/blob/main/CHANGELOG.md"
+"Source Code" = "https://github.com/Shop-Integrations/shopify-nano-sre"
 
 [project.optional-dependencies]
 dev = [

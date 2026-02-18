@@ -6,22 +6,23 @@
 [![Playwright](https://img.shields.io/badge/powered%20by-Playwright-green.svg)](https://playwright.dev/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI Status](https://github.com/Shop-Integrations/shopify-nano-sre/actions/workflows/ci.yml/badge.svg)](https://github.com/Shop-Integrations/shopify-nano-sre/actions)
+[![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)](https://github.com/Shop-Integrations/shopify-nano-sre/actions)
 
 ## Monitoring Comparison
 
-| Feature                           | Pingdom | Datadog           | Shopify Nano-SRE |
-| --------------------------------- | ------- | ----------------- | ---------------- |
-| HTTP Uptime                       | ✅      | ✅                | ✅               |
-| Synthetic User Journey            | ❌      | ⚠️ (manual)       | ✅               |
-| Shopify Awareness                 | ❌      | ⚠️                | ✅               |
-| Checkout Audit                    | ❌      | ⚠️ (manual)       | ✅               |
-| Analytics Pixel Validation        | ❌      | ❌                | ✅               |
-| LLM-Powered Diagnosis             | ❌      | ❌                | ✅               |
-| Mobile-First Monitoring           | ⚠️      | ⚠️                | ✅               |
-| Open Source                       | ❌      | ❌                | ✅               |
-| Self-Hosted                       | ❌      | ❌                | ✅               |
-| Setup Time                        | 5 min   | Days or weeks     | 5 min            |
-| Cost per month                    | $10-50  | $500+ (enterprise) | Free (+ LLM API) |
+| Feature                    | Pingdom | Datadog            | Shopify Nano-SRE |
+| -------------------------- | ------- | ------------------ | ---------------- |
+| HTTP Uptime                | ✅      | ✅                 | ✅               |
+| Synthetic User Journey     | ❌      | ⚠️ (manual)        | ✅               |
+| Shopify Awareness          | ❌      | ⚠️                 | ✅               |
+| Checkout Audit             | ❌      | ⚠️ (manual)        | ✅               |
+| Analytics Pixel Validation | ❌      | ❌                 | ✅               |
+| LLM-Powered Diagnosis      | ❌      | ❌                 | ✅               |
+| Mobile-First Monitoring    | ⚠️      | ⚠️                 | ✅               |
+| Open Source                | ❌      | ❌                 | ✅               |
+| Self-Hosted                | ❌      | ❌                 | ✅               |
+| Setup Time                 | 5 min   | Days or weeks      | 5 min            |
+| Cost per month             | $10-50  | $500+ (enterprise) | Free (+ LLM API) |
 
 ## Features
 
@@ -118,13 +119,18 @@ nano-sre audit --url https://mystore.myshopify.com
 
 ### Technology Stack
 
-| Component        | Choice                     | Notes |
-| --------------- | -------------------------- | ----- |
-| Agent Core      | Nanobot-inspired Python    | Lightweight and auditable |
-| Browser Engine  | Playwright                 | Handles hydration and pixels |
-| Intelligence    | LiteLLM                    | OpenAI, Anthropic, local models |
-| Knowledge Base  | Shopify Dev MCP            | Live API docs and errors |
-| State           | SQLite                     | Local baselines and incidents |
+| Component         | Choice                                        | Notes                           |
+| ----------------- | --------------------------------------------- | ------------------------------- |
+| Agent Core        | Nanobot-inspired Python                       | Lightweight and auditable       |
+| Browser Engine    | [Playwright](https://playwright.dev/)         | Handles hydration and pixels    |
+| Intelligence      | [LiteLLM](https://github.com/BerriAI/litellm) | OpenAI, Anthropic, local models |
+| Knowledge Base    | Shopify Dev MCP                               | Live API docs and errors        |
+| State             | [SQLite](https://www.sqlite.org/)             | Local baselines and incidents   |
+| UI/CLI            | [Rich](https://github.com/Textualize/rich)    | Beautiful terminal output       |
+| Schema/Validation | [Pydantic](https://docs.pydantic.dev/)        | Data integrity and settings     |
+| CLI Framework     | [Click](https://click.palletsprojects.com/)   | Command-line interface          |
+
+This project is built on the shoulders of giants. We leverage major open-source tools including **Playwright** for browser automation, **LiteLLM** for model-agnostic AI integration, **Rich** for terminal formatting, and **Pydantic** for robust data validation.
 
 ### Skill: Synthetic Shopper
 
@@ -220,7 +226,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 ## Security
 
-Found a security vulnerability? Please report it via [SECURITY.md](SECURITY.md).
+Found a security vulnerability? Please report it via [.github/SECURITY.md](.github/SECURITY.md).
 
 ---
 
