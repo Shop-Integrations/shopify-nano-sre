@@ -273,7 +273,7 @@ class PixelAuditor(Skill):
         - add_to_cart/begin_checkout: value, currency
         - view_item: value, currency (optional but recommended)
         """
-        required_fields = {
+        required_fields: dict[str, list[str]] = {
             "purchase": ["value", "currency", "transaction_id"],
             "add_to_cart": ["value", "currency"],
             "begin_checkout": ["value", "currency"],

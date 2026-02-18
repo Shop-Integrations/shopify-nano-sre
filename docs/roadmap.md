@@ -8,8 +8,8 @@ This roadmap is directional and may shift based on user feedback and Shopify pla
 - [x] Local-first configuration with BYOK
 - [x] Alerting and reporting (local-first)
 - [x] Core skills: pixel auditor, visual sentinel, Shopify doctor, headless probe, MCP advisor
-- [ ] Synthetic shopper flow
-- [-] CLI workflows: audit (done), watch/baseline/report (pending)
+- [x] Synthetic shopper flow
+- [x] CLI workflows: audit, watch, baseline update, report show
 - [x] GitHub Action for CI audits
 
 ## Phase 2: Cloud sync, dashboard, advanced LLM features

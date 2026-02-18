@@ -89,11 +89,13 @@ async def _llm_diagnosis(skill_result: SkillResult, settings: Any) -> dict[str, 
     ]
 
     # Add screenshots for vision models if available
-    if skill_result.screenshots and _is_vision_model(settings.llm_model):
+    from nano_sre.utils.llm import get_litellm_model_identifier, is_vision_model
+
+    if skill_result.screenshots and is_vision_model(settings.llm_model):
         messages = _add_screenshots_to_messages(messages, skill_result.screenshots)
 
     # Determine model identifier for litellm
-    model = _get_litellm_model_identifier(settings.llm_provider, settings.llm_model)
+    model = get_litellm_model_identifier(settings.llm_provider, settings.llm_model)
 
     try:
         # Call LLM via litellm
@@ -106,10 +108,28 @@ async def _llm_diagnosis(skill_result: SkillResult, settings: Any) -> dict[str, 
         )
 
         # Extract response content
-        content = response.choices[0].message.content
+        content = response.choices[0].message.content or ""
+
+        # Clean up markdown JSON code blocks if present
+        if content.strip().startswith("```"):
+            lines = content.strip().splitlines()
+            if lines[0].startswith("```json"):
+                content = "\n".join(lines[1:-1])
+            elif lines[0].startswith("```"):
+                content = "\n".join(lines[1:-1])
 
         # Parse JSON response
-        diagnosis_data: dict[str, Any] = json.loads(content)
+        try:
+            diagnosis_data: dict[str, Any] = json.loads(content)
+        except json.JSONDecodeError:
+            # Try finding JSON within the text if parsing fails
+            import re
+
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                diagnosis_data = json.loads(json_match.group())
+            else:
+                raise
 
         # Validate required fields
         required_fields = ["root_cause", "severity", "recommended_fix"]
@@ -164,20 +184,6 @@ def _format_skill_result_for_llm(skill_result: SkillResult) -> str:
     return "\n".join(message_parts)
 
 
-def _is_vision_model(model_name: str) -> bool:
-    """
-    Check if the model supports vision/image inputs.
-
-    Args:
-        model_name: Name of the LLM model
-
-    Returns:
-        True if vision model, False otherwise
-    """
-    vision_keywords = ["vision", "gpt-4-turbo", "gpt-4o", "claude-3"]
-    return any(keyword in model_name.lower() for keyword in vision_keywords)
-
-
 def _add_screenshots_to_messages(
     messages: list[dict[str, Any]], screenshots: list[str]
 ) -> list[dict[str, Any]]:
@@ -196,32 +202,10 @@ def _add_screenshots_to_messages(
     if messages:
         last_message = messages[-1]
         if "content" in last_message:
-            last_message["content"] += (
-                f"\n\nNote: {len(screenshots)} screenshot(s) available for analysis."
-            )
+            last_message[
+                "content"
+            ] += f"\n\nNote: {len(screenshots)} screenshot(s) available for analysis."
     return messages
-
-
-def _get_litellm_model_identifier(provider: str, model: str) -> str:
-    """
-    Get the correct model identifier for litellm.
-
-    Args:
-        provider: LLM provider (openai, anthropic, ollama)
-        model: Model name
-
-    Returns:
-        Formatted model identifier for litellm
-    """
-    # litellm uses provider-specific prefixes
-    if provider == "anthropic":
-        if not model.startswith("claude"):
-            return f"claude-{model}"
-        return model
-    elif provider == "ollama":
-        return f"ollama/{model}"
-    else:  # openai and others
-        return model
 
 
 def _fallback_diagnosis(skill_result: SkillResult, error: Optional[str] = None) -> dict[str, Any]:

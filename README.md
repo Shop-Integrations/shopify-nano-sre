@@ -33,12 +33,29 @@
 - 🩺 **Shopify Doctor**: Uses the Shopify Dev MCP to explain API errors
 - 📊 **SQLite Baselines**: Tracks performance metrics locally
 - 🔒 **Local-First + BYOK**: Run on your machine, bring your own LLM key
-- 📱 **Mobile-First**: iPhone 14 Pro viewport included by default
+- 📱 **Mobile-First**: iPhone 17 Pro viewport included by default
 - 🐳 **Docker Ready**: Containerized deployment supported
 
 ## About
 
 Nano-SRE is a lightweight, AI-powered Site Reliability Engineering (SRE) tool designed specifically for Shopify stores. It continuously monitors your storefront, product pages, add-to-cart flows, and checkout using synthetic monitoring with Playwright, then employs LLM-driven diagnostics to detect and alert you to issues before customers see them.
+
+## Demo
+
+Here's a sample report from a baseline check against a Shopify development store:
+
+| Skill           | Status  | Summary                                                  |
+| --------------- | ------- | -------------------------------------------------------- |
+| shopify_shopper | ✅ PASS | Shopper journey completed successfully (Product -> Cart) |
+| pixel_auditor   | ⚠️ WARN | Pixel Health: No analytics events detected               |
+| visual_auditor  | ✅ PASS | No significant visual changes detected across 3 pages    |
+| shopify_doctor  | ⚠️ WARN | Found 3 warning(s)                                       |
+| headless_probe  | ⚠️ WARN | Console warnings detected: 2                             |
+| mcp_advisor     | ⚠️ WARN | Found 3 issue(s)                                         |
+
+**Total Skills:** 6 | **Passed:** 2 | **Warnings:** 4 | **Failed:** 0
+
+The full report includes detailed findings, AI-powered diagnosis, and recommended actions for each warning. See [docs/demo/baseline_report.md](docs/demo/baseline_report.md) for the complete example.
 
 ### The Reliability Gaps We Target
 
@@ -54,7 +71,7 @@ As Shopify transitions to [Checkout Extensibility](https://shopify.dev/docs/cust
 - **Synthetic Shopper**: Walks through your product and checkout flow autonomously
 - **Pixel Auditor**: Validates critical analytics pixels (Facebook, GA, TikTok) are firing
 - **Smart Diagnosis**: Uses LLMs to analyze failures and suggest remediation
-- **Mobile-First**: Tests on iPhone 14 Pro viewport by default
+- **Mobile-First**: Tests on iPhone 17 Pro viewport by default
 - **Local-First**: Runs locally with BYOK, keeping store data private
 
 ## Quick Start
@@ -78,8 +95,11 @@ pip install -e ".[dev]"
 1. Copy `.env.example` to `.env`
 2. Fill in required fields:
    - `STORE_URL`: Your Shopify store URL (e.g., `https://mystore.myshopify.com`)
+   - `STORE_PASSWORD`: (Optional) Your store password if it's protected
    - `LLM_API_KEY`: OpenAI or Anthropic API key
    - `LLM_MODEL`: Model to use (e.g., `gpt-4`, `claude-3-sonnet`)
+   - `MCP_COMMAND`: `npx` (for Shopify Dev MCP)
+   - `MCP_ARGS`: `'["-y", "@shopify/dev-mcp@latest"]'`
 
 ### Run Your First Check
 

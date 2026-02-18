@@ -4,15 +4,14 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from nano_sre.agent.core import SkillResult
 from nano_sre.agent.diagnosis import (
     _fallback_diagnosis,
     _format_skill_result_for_llm,
-    _get_litellm_model_identifier,
-    _is_vision_model,
     diagnose,
 )
+from nano_sre.utils.llm import get_litellm_model_identifier as _get_litellm_model_identifier
+from nano_sre.utils.llm import is_vision_model as _is_vision_model
 
 
 @pytest.fixture

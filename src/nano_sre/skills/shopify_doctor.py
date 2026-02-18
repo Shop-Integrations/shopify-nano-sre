@@ -56,8 +56,18 @@ class ShopifyDoctorSkill(Skill):
         def handle_console(msg):
             """Capture console messages."""
             if msg.type == "error":
-                console_errors.append(msg.text)
-                logger.debug(f"Console error captured: {msg.text}")
+                # Filter out known non-critical errors
+                text = msg.text
+                ignored_patterns = [
+                    "sf_private_access_tokens",  # 401 usually from private app tokens
+                    "shop.app",  # CSP framing issues
+                    "v1/pixels",  # Tracking errors
+                ]
+                if any(pattern in text for pattern in ignored_patterns):
+                    return
+
+                console_errors.append(text)
+                logger.debug(f"Console error captured: {text}")
 
         page.on("console", handle_console)
 
@@ -142,7 +152,7 @@ class ShopifyDoctorSkill(Skill):
             shop_domain = shop_domain[:-1]
 
         # GraphQL API endpoint
-        api_url = f"https://{shop_domain}/admin/api/2024-01/graphql.json"
+        api_url = f"https://{shop_domain}/admin/api/2026-01/graphql.json"
 
         headers = {
             "Content-Type": "application/json",
@@ -241,7 +251,7 @@ class ShopifyDoctorSkill(Skill):
                                 products_without_prices.append(product["title"])
 
                         if products_without_images:
-                            issues.append(
+                            warnings.append(
                                 f"{len(products_without_images)} product(s) missing images"
                             )
                             details["products_without_images"] = products_without_images[
@@ -249,7 +259,7 @@ class ShopifyDoctorSkill(Skill):
                             ]  # Limit to 5
 
                         if products_without_prices:
-                            issues.append(
+                            warnings.append(
                                 f"{len(products_without_prices)} product(s) missing prices"
                             )
                             details["products_without_prices"] = products_without_prices[
@@ -262,7 +272,7 @@ class ShopifyDoctorSkill(Skill):
 
                 # Check 3: Deprecated API versions
                 # Check the API version used in the URL and warn if it's old
-                api_version = "2024-01"  # Current version in use
+                api_version = "2026-01"  # Current version in use
                 current_year = 2026
                 api_year = int(api_version.split("-")[0])
 

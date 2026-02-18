@@ -13,14 +13,18 @@ from rich.table import Table
 
 from nano_sre.agent.core import Agent, Skill
 from nano_sre.agent.reporter import generate_report
-from nano_sre.config.settings import Settings
+from nano_sre.config.settings import Settings, get_settings
 from nano_sre.skills import (
     HeadlessProbeSkill,
     MCPAdvisor,
     PixelAuditor,
     ShopifyDoctorSkill,
+    ShopifyShopper,
     VisualAuditor,
 )
+from nano_sre.utils.llm import is_vision_model
+from nano_sre.utils.mcp import get_mcp_client
+from nano_sre.utils.shopify import bypass_shopify_password
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -29,15 +33,18 @@ logger = logging.getLogger(__name__)
 @click.group()
 @click.option(
     "--report-dir",
-    default="reports",
     help="Directory to save incident reports",
-    show_default=True,
 )
 @click.pass_context
-def main(ctx, report_dir):
+def main(ctx, report_dir: Optional[str]):
     """Shopify Nano-SRE: The open-source AI engineer that monitors your Shopify store."""
     # Ensure context object exists
     ctx.ensure_object(dict)
+
+    # Load settings to get default report_dir
+    settings = get_settings()
+    report_dir = report_dir or settings.report_dir
+
     # Store report_dir in context for subcommands
     ctx.obj["report_dir"] = report_dir
 
@@ -45,8 +52,11 @@ def main(ctx, report_dir):
 @main.command()
 @click.option(
     "--url",
-    required=True,
     help="URL of the Shopify store to audit (e.g., https://your-store.myshopify.com)",
+)
+@click.option(
+    "--password",
+    help="Shopify store password (if protected)",
 )
 @click.option(
     "--skill",
@@ -67,7 +77,8 @@ def main(ctx, report_dir):
 @click.pass_context
 def audit(
     ctx,
-    url: str,
+    url: Optional[str],
+    password: Optional[str],
     skill_names: Iterable[str],
     update_baseline: bool,
     output: Optional[str],
@@ -77,6 +88,7 @@ def audit(
     asyncio.run(
         _run_audit(
             url,
+            password=password,
             report_dir=report_dir,
             output=output,
             skill_names=list(skill_names),
@@ -88,13 +100,14 @@ def audit(
 @main.command()
 @click.option(
     "--url",
-    required=True,
     help="URL of the Shopify store to monitor (e.g., https://your-store.myshopify.com)",
 )
 @click.option(
+    "--password",
+    help="Shopify store password (if protected)",
+)
+@click.option(
     "--interval",
-    default=60,
-    show_default=True,
     help="Interval in minutes between checks",
 )
 @click.option(
@@ -104,12 +117,19 @@ def audit(
     help="Run only the specified skill(s) (repeatable)",
 )
 @click.pass_context
-def watch(ctx, url: str, interval: int, skill_names: Iterable[str]):
+def watch(
+    ctx,
+    url: Optional[str],
+    password: Optional[str],
+    interval: Optional[int],
+    skill_names: Iterable[str],
+):
     """Continuously monitor a Shopify store at a fixed interval."""
     report_dir = ctx.obj.get("report_dir", "reports")
     asyncio.run(
         _run_watch(
             url,
+            password=password,
             interval_minutes=interval,
             report_dir=report_dir,
             skill_names=list(skill_names),
@@ -125,8 +145,11 @@ def baseline():
 @baseline.command("update")
 @click.option(
     "--url",
-    required=True,
     help="URL of the Shopify store to baseline (e.g., https://your-store.myshopify.com)",
+)
+@click.option(
+    "--password",
+    help="Shopify store password (if protected)",
 )
 @click.option(
     "--skill",
@@ -135,7 +158,7 @@ def baseline():
     help="Baseline-capable skill(s) to run (default: visual_auditor)",
 )
 @click.pass_context
-def baseline_update(ctx, url: str, skill_names: Iterable[str]):
+def baseline_update(ctx, url: str, password: Optional[str], skill_names: Iterable[str]):
     """Update visual audit baselines for a store."""
     report_dir = ctx.obj.get("report_dir", "reports")
     selected_skills = list(skill_names) if skill_names else ["visual_auditor"]
@@ -145,6 +168,7 @@ def baseline_update(ctx, url: str, skill_names: Iterable[str]):
     asyncio.run(
         _run_audit(
             url,
+            password=password,
             report_dir=report_dir,
             skill_names=selected_skills,
             update_baseline=True,
@@ -203,33 +227,63 @@ def report_show(ctx, latest: bool, report_path: Optional[Path]):
 
 
 async def _run_audit(
-    url: str,
+    url: Optional[str],
     report_dir: str,
+    password: Optional[str] = None,
     output: Optional[str] = None,
     skill_names: Optional[list[str]] = None,
     update_baseline: bool = False,
 ):
     """Execute the audit asynchronously."""
-    console.print(f"[bold blue]Starting audit for:[/bold blue] {url}")
-
     try:
-        settings = Settings.model_validate({"store_url": url})
-        settings.check_interval_minutes = max(settings.check_interval_minutes, 1)
+        settings = get_settings()
+        # Override values if provided via CLI
+        if url:
+            settings.store_url = url  # type: ignore
+        if password:
+            settings.store_password = password
+
+        # Ensure we have a URL
+        url = settings.store_url_str
+        if not url or url == "None":
+            raise click.UsageError(
+                "Store URL must be provided via --url or STORE_URL environment variable"
+            )
+
+        console.print(f"[bold blue]Starting audit for:[/bold blue] {url}")
 
         agent = Agent(settings)
-        skills = _build_skills(update_baseline=update_baseline)
+        skills = _build_skills(settings=settings, update_baseline=update_baseline)
         for skill in skills.values():
             agent.register_skill(skill)
 
         selected_skills = _resolve_skill_names(skill_names, skills.keys())
 
         async with async_playwright() as p:
+            # Emulate iPhone 17 Pro
+            try:
+                iphone_17 = p.devices["iPhone 17 Pro"]
+            except KeyError:
+                # Fallback manual definition if Playwright is not yet updated for 2026 devices
+                iphone_17 = {
+                    "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Mobile/15E148 Safari/604.1",
+                    "viewport": {"width": 430, "height": 932},
+                    "device_scale_factor": 3,
+                    "is_mobile": True,
+                    "has_touch": True,
+                    "default_browser_type": "webkit",
+                }
+
             browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
+            context = await browser.new_context(**iphone_17)
             page = await context.new_page()
 
             try:
                 await page.goto(url, wait_until="networkidle")
+
+                # Handle Shopify password if needed
+                if settings.store_password:
+                    await bypass_shopify_password(page, settings.store_password)
 
                 context_data = {
                     "page": page,
@@ -238,20 +292,48 @@ async def _run_audit(
                     "settings": settings,
                 }
 
-                results = await agent.execute_skills(
-                    skill_names=selected_skills,
-                    context=context_data,
-                )
+                # Initialize MCP client if enabled
+                async with get_mcp_client(
+                    command=settings.mcp_command if settings.mcp_enabled else None,
+                    args=settings.mcp_args if settings.mcp_enabled else [],
+                    url=settings.mcp_server_url if settings.mcp_enabled else None,
+                ) as mcp_client:
+                    if mcp_client:
+                        context_data["mcp_client"] = mcp_client
+
+                    results = await agent.execute_skills(
+                        skill_names=selected_skills,
+                        context=context_data,
+                    )
 
                 _display_results(results)
 
                 llm_configured = bool(settings.llm_api_key or settings.llm_provider == "ollama")
+
+                # Perform AI diagnosis for failures if LLM is available
+                ai_diagnosis = None
+                if llm_configured:
+                    console.print("[bold yellow]Performing AI failure diagnosis...[/bold yellow]")
+                    from nano_sre.agent.diagnosis import diagnose
+
+                    # Diagnose individual failures and collect them
+                    diagnoses = []
+                    for r in results:
+                        if r.status in ["WARN", "FAIL"]:
+                            diag = await diagnose(r)
+                            diagnoses.append(
+                                f"### Diagnosis for {r.skill_name}\n\n**Root Cause:** {diag.get('root_cause')}\n\n**Fix:** {diag.get('recommended_fix')}"
+                            )
+
+                    if diagnoses:
+                        ai_diagnosis = "\n\n".join(diagnoses)
+
                 report_path = await generate_report(
                     results=results,
                     store_url=url,
                     report_dir=report_dir,
                     llm_configured=llm_configured,
-                    ai_diagnosis=None,
+                    ai_diagnosis=ai_diagnosis,
                 )
 
                 console.print(f"\n[green]Report saved to:[/green] {report_path}")
@@ -286,18 +368,21 @@ async def _run_audit(
 
 
 async def _run_watch(
-    url: str,
-    interval_minutes: int,
+    url: Optional[str],
+    password: Optional[str],
+    interval_minutes: Optional[int],
     report_dir: str,
     skill_names: Optional[list[str]] = None,
 ):
     """Execute continuous monitoring at a fixed interval."""
-    interval = max(interval_minutes, 1)
-
+    settings = get_settings()
+    interval = interval_minutes or settings.check_interval_minutes
+    interval = max(interval, 1)
     try:
         while True:
             await _run_audit(
                 url,
+                password=password,
                 report_dir=report_dir,
                 skill_names=skill_names,
             )
@@ -348,11 +433,18 @@ def _normalize_skill_name(name: str) -> str:
     return name.strip().lower().replace("-", "_")
 
 
-def _build_skills(update_baseline: bool) -> dict[str, Skill]:
+def _build_skills(settings: Settings, update_baseline: bool) -> dict[str, Skill]:
     """Build available skill instances keyed by their canonical names."""
-    skill_instances = [
+    # Only enable vision if model supports it
+    use_vision = settings.llm_api_key and is_vision_model(settings.llm_model)
+
+    skill_instances: list[Skill] = [
+        ShopifyShopper(),
         PixelAuditor(mock_mode=False),
-        VisualAuditor(update_baseline=update_baseline),
+        VisualAuditor(
+            llm_client={"model": settings.llm_model} if use_vision else None,
+            update_baseline=update_baseline,
+        ),
         ShopifyDoctorSkill(),
         HeadlessProbeSkill(),
         MCPAdvisor(),

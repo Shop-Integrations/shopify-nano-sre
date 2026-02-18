@@ -1,5 +1,6 @@
 """MCP Advisor skill for querying Shopify Dev MCP."""
 
+import json
 import logging
 from typing import Any, Optional
 
@@ -35,17 +36,20 @@ class MCPAdvisor(Skill):
             SkillResult with MCP recommendations or graceful skip.
         """
         try:
-            # Check if MCP is configured
+            # Check if MCP is configured or if we should use LLM fallback
             mcp_available = await self._check_mcp_availability(context)
+            settings = context.get("settings")
+            llm_available = settings and (settings.llm_api_key or settings.llm_provider == "ollama")
 
-            if not mcp_available:
+            if not mcp_available and not llm_available:
                 return SkillResult(
                     skill_name=self.name(),
                     status="PASS",
-                    summary="MCP not configured - skipping gracefully",
+                    summary="MCP not configured and no LLM available - skipping",
                     details={
                         "mcp_configured": False,
-                        "note": "Install and configure Shopify Dev MCP for enhanced diagnostics",
+                        "llm_configured": False,
+                        "note": "Install Shopify Dev MCP or configure LLM for enhanced diagnostics",
                     },
                 )
 
@@ -58,14 +62,18 @@ class MCPAdvisor(Skill):
                     skill_name=self.name(),
                     status="PASS",
                     summary="No errors to analyze",
-                    details={"mcp_configured": True},
+                    details={
+                        "mcp_configured": mcp_available,
+                        "llm_configured": bool(llm_available),
+                    },
                 )
 
-            # Query MCP for recommendations
-            recommendations = await self._query_mcp(
+            # Query advisor for recommendations
+            recommendations = await self._query_advisor(
                 console_errors=console_errors,
                 api_errors=api_errors,
                 context=context,
+                use_llm_fallback=bool(not mcp_available and llm_available),
             )
 
             status = "WARN" if recommendations.get("issues_found") else "PASS"
@@ -75,7 +83,8 @@ class MCPAdvisor(Skill):
                 status=status,
                 summary=self._build_summary(recommendations),
                 details={
-                    "mcp_configured": True,
+                    "mcp_configured": mcp_available,
+                    "llm_used": bool(not mcp_available and llm_available),
                     "recommendations": recommendations.get("items", []),
                     "documentation_links": recommendations.get("docs", []),
                     "deprecations": recommendations.get("deprecations", []),
@@ -90,6 +99,54 @@ class MCPAdvisor(Skill):
                 summary=f"MCP advisor failed: {str(e)}",
                 error=str(e),
             )
+
+    async def _query_advisor(
+        self,
+        console_errors: list[dict[str, Any]],
+        api_errors: list[dict[str, Any]],
+        context: dict[str, Any],
+        use_llm_fallback: bool = False,
+    ) -> dict[str, Any]:
+        """Query for recommendations."""
+        if use_llm_fallback:
+            return await self._query_llm_advisor(console_errors, api_errors, context)
+        return await self._query_mcp(console_errors, api_errors, context)
+
+    async def _query_llm_advisor(
+        self,
+        console_errors: list[dict[str, Any]],
+        api_errors: list[dict[str, Any]],
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Use LLM to simulate the advisor when MCP is not available."""
+        from nano_sre.agent.core import SkillResult
+        from nano_sre.agent.diagnosis import diagnose
+
+        # Create a dummy skill result to feed into the diagnosis module
+        dummy_result = SkillResult(
+            skill_name="mcp_advisor_internal",
+            status="WARN",
+            summary="Analyzing captured errors",
+            details={"console_errors": console_errors, "api_errors": api_errors},
+        )
+
+        diagnosis = await diagnose(dummy_result)
+
+        return {
+            "items": [
+                {
+                    "error": "Multiple system errors",
+                    "explanation": diagnosis.get("root_cause"),
+                    "recommended_fix": diagnosis.get("recommended_fix"),
+                    "documentation_link": diagnosis.get("shopify_docs_link"),
+                }
+            ],
+            "docs": [diagnosis.get("shopify_docs_link")]
+            if diagnosis.get("shopify_docs_link")
+            else [],
+            "deprecations": [],
+            "issues_found": True,
+        }
 
     async def _check_mcp_availability(self, context: dict[str, Any]) -> bool:
         """
@@ -227,20 +284,33 @@ class MCPAdvisor(Skill):
         Returns:
             Dictionary with explanation and recommendations, or None.
         """
-        # Placeholder for actual MCP query implementation
-        # This would use the MCP client's API to query Shopify Dev docs
+        try:
+            # Step 1: Initialize conversation for liquid/generic issues
+            init_res = await mcp_client.call_tool("learn_shopify_api", arguments={"api": "liquid"})
+            conversation_id = self._extract_conversation_id(init_res)
 
-        # Example structure of what would be returned:
-        # return {
-        #     "error": error_text,
-        #     "explanation": "...",
-        #     "recommended_fix": "...",
-        #     "documentation_link": "https://shopify.dev/...",
-        #     "is_deprecated": False,
-        # }
+            if not conversation_id:
+                return None
 
-        # For now, return None as placeholder
-        logger.debug(f"MCP query for error: {error_text} (type: {error_type})")
+            # Step 2: Search for the error
+            prompt = f"Explain this Shopify storefront error: {error_text}"
+            search_res = await mcp_client.call_tool(
+                "search_docs_chunks",
+                arguments={"conversationId": conversation_id, "prompt": prompt},
+            )
+
+            content_text = self._extract_text_from_result(search_res)
+
+            if content_text:
+                processed_text = self._process_mcp_results(content_text)
+                return {
+                    "error": error_text,
+                    "explanation": processed_text,
+                    "recommended_fix": "See the search results above for guidance.",
+                }
+        except Exception as e:
+            logger.warning(f"MCP workflow failed for console error: {e}")
+
         return None
 
     async def _mcp_explain_api_error(
@@ -262,27 +332,81 @@ class MCPAdvisor(Skill):
         Returns:
             Dictionary with explanation and recommendations, or None.
         """
-        # Placeholder for actual MCP query implementation
+        try:
+            # Step 1: Initialize conversation for Admin API
+            init_res = await mcp_client.call_tool("learn_shopify_api", arguments={"api": "admin"})
+            conversation_id = self._extract_conversation_id(init_res)
 
-        # Example query: "Explain the error 'Field sku doesn't exist' for API version 2025-01"
-        # Example response structure:
-        # return {
-        #     "error_code": error_code,
-        #     "error_message": error_message,
-        #     "explanation": "...",
-        #     "recommended_fix": "...",
-        #     "documentation_link": "https://shopify.dev/api/admin-graphql/...",
-        #     "is_deprecated": True,
-        #     "field": "sku",
-        #     "deprecation_date": "2024-10",
-        #     "replacement": "Use variants.sku instead",
-        #     "migration_guide": "https://shopify.dev/changelog/...",
-        # }
+            if not conversation_id:
+                return None
 
-        logger.debug(
-            f"MCP query for API error: {error_message} (code: {error_code}, version: {api_version})"
-        )
+            # Step 2: Search for the API error
+            prompt = f"Explain Shopify Admin API error (code: {error_code}): {error_message}"
+            if api_version:
+                prompt += f" for API version {api_version}"
+
+            search_res = await mcp_client.call_tool(
+                "search_docs_chunks",
+                arguments={"conversationId": conversation_id, "prompt": prompt},
+            )
+
+            content_text = self._extract_text_from_result(search_res)
+
+            if content_text:
+                processed_text = self._process_mcp_results(content_text)
+                return {
+                    "error_code": error_code,
+                    "error_message": error_message,
+                    "explanation": processed_text,
+                }
+        except Exception as e:
+            logger.warning(f"MCP workflow failed for API error: {e}")
+
         return None
+
+    def _process_mcp_results(self, content_text: str, limit: int = 5) -> Any:
+        """Process and filter MCP results to limit size and remove bulky content."""
+        try:
+            data = json.loads(content_text)
+            if isinstance(data, list):
+                # Limit to 5-10 (default 5)
+                limited_data = data[:limit]
+                # Remove "content" field from each chunk to keep report slim
+                for item in limited_data:
+                    if isinstance(item, dict):
+                        item.pop("content", None)
+                return limited_data
+        except (json.JSONDecodeError, TypeError):
+            # Not JSON or not a list, return as is (might be plain text)
+            pass
+        return content_text
+
+    def _extract_conversation_id(self, result: Any) -> Optional[str]:
+        """Extract conversation UUID from tool result."""
+        text = self._extract_text_from_result(result)
+        if not text:
+            return None
+
+        # The result often says "Conversation started with ID: ..."
+        # or we might need to parse the actual JSON if it returned one.
+        # However, many MCP servers just return text.
+        import re
+
+        match = re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", text)
+        if match:
+            return match.group(0)
+        return None
+
+    def _extract_text_from_result(self, result: Any) -> str:
+        """Helper to extract text content from MCP result."""
+        if not result or not hasattr(result, "content"):
+            return ""
+
+        texts = []
+        for part in result.content:
+            if hasattr(part, "text"):
+                texts.append(part.text)
+        return "\n".join(texts)
 
     def _build_summary(self, recommendations: dict[str, Any]) -> str:
         """

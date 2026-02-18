@@ -224,20 +224,48 @@ def _format_details(details: dict[str, Any], indent: int = 0) -> str:
     indent_str = "  " * indent
 
     for key, value in details.items():
+        # Skip internal/redundant keys
+        if key in ("mcp_configured", "llm_used", "api_version_in_use", "mock_mode"):
+            continue
+
         if isinstance(value, dict):
-            lines.append(f"{indent_str}- **{key}:**")
-            lines.append(_format_details(value, indent + 1))
+            if value:
+                rendered = _format_details(value, indent + 1)
+                if rendered:
+                    lines.append(f"{indent_str}- **{key}:**")
+                    lines.append(rendered)
         elif isinstance(value, list):
             if value:
-                lines.append(f"{indent_str}- **{key}:**")
-                for item in value:
-                    if isinstance(item, dict):
-                        lines.append(_format_details(item, indent + 1))
-                    else:
-                        lines.append(f"{indent_str}  - {item}")
-            else:
-                lines.append(f"{indent_str}- **{key}:** (empty)")
-        else:
+                # Special handling for MCP recommendations to make them readable
+                if key == "recommendations":
+                    lines.append(f"{indent_str}- **{key}:**")
+                    for item in value:
+                        if isinstance(item, dict):
+                            error = item.get("error", "Issue")
+                            lines.append(f"{indent_str}  - **{error}:**")
+                            # If explanation is a list (from search results), format as direct links
+                            explanation = item.get("explanation")
+                            if isinstance(explanation, list):
+                                for exp in explanation:
+                                    if isinstance(exp, dict) and "url" in exp:
+                                        title = exp.get("title", "Reference")
+                                        lines.append(f"{indent_str}    - [{title}]({exp['url']})")
+                            elif explanation:
+                                lines.append(f"{indent_str}    - {explanation}")
+
+                            fix = item.get("recommended_fix")
+                            if fix and "See the search results" not in fix:
+                                lines.append(f"{indent_str}    - **Fix:** {fix}")
+                else:
+                    lines.append(f"{indent_str}- **{key}:**")
+                    for item in value:
+                        if isinstance(item, dict):
+                            rendered = _format_details(item, indent + 1)
+                            if rendered:
+                                lines.append(rendered)
+                        else:
+                            lines.append(f"{indent_str}  - {item}")
+        elif value is not None and value != "" and value != "(empty)":
             lines.append(f"{indent_str}- **{key}:** {value}")
 
     return "\n".join(lines)

@@ -98,6 +98,11 @@ celerybeat.pid
 
 # Environments
 .env
+
+# Database/Storage
+db/baselines/
+db/screenshots/
+reports/
 .venv
 env/
 venv/

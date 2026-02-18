@@ -64,6 +64,9 @@ Open `.env` in your text editor and update the following required fields:
 # Your Shopify store URL
 STORE_URL=https://your-store.myshopify.com
 
+# (Optional) Store password if it is password protected
+STORE_PASSWORD=your-store-password
+
 # LLM Provider (openai, anthropic, or ollama)
 LLM_PROVIDER=openai
 
@@ -73,6 +76,47 @@ LLM_API_KEY=sk-your-api-key-here
 # Model to use
 LLM_MODEL=gpt-4
 ```
+
+### Password-Protected Stores
+
+If your store is currently under development or maintenance and is password-protected, Shopify Nano-SRE can automatically bypass the password page. Simply provide the `STORE_PASSWORD` in your `.env` file or via the CLI.
+
+The synthetic shopper will detect the password page, enter the password, and proceed with the audit.
+
+### Configuring Shopify Admin API (Highly Recommended)
+
+To enable advanced health checks (like Liquid error detection and product audits), you should provide a Shopify Admin API token.
+
+1.  **Enable Custom App Development**:
+    *   In Shopify Admin, go to **Settings** > **Apps and sales channels** > **Develop apps**.
+    *   Click **Allow legacy custom app development** and confirm.
+2.  **Create Private App**:
+    *   Click **Create an app** and name it `Shopify Nano-SRE`.
+3.  **Configure Scopes**:
+    *   Click **Configure Admin API scopes**.
+    *   Select `read_products` and `read_themes` (required for `shopify_doctor` skill).
+    *   Click **Save**.
+4.  **Install & Get Token**:
+    *   Click **Install app** in the top right.
+    *   Under **API credentials**, click **Reveal token once** to see your **Admin API access token** (starts with `shpat_`).
+5.  **Update `.env`**:
+    ```bash
+    SHOPIFY_ADMIN_API_KEY=shpat_xxxxxxxxxxxxxxxxxxxx
+    ```
+
+### Configuring Shopify Dev MCP (Recommended)
+
+Shopify Dev MCP (Model Context Protocol) allows Nano-SRE to query official Shopify documentation in real-time to explain API errors and propose fixes.
+
+1.  **Ensure Node.js is installed** (npx is used to run the MCP server).
+2.  **Update `.env`**:
+    ```bash
+    MCP_COMMAND=npx
+    MCP_ARGS='["-y", "@shopify/dev-mcp@latest"]'
+    MCP_ENABLED=true
+    ```
+
+This enables the `mcp_advisor` skill to provide authoritative diagnostics for storefront and Admin API errors.
 
 ### Step 3: Optional Configuration
 
@@ -111,7 +155,7 @@ Starting audit for: https://your-store.myshopify.com
 ┏━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Skill          ┃ Status ┃ Summary                       ┃
 ┡━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ PixelAuditor   │ PASS   │ All tracking pixels detected  │
+│ pixel_auditor  │ PASS   │ All tracking pixels detected  │
 └────────────────┴────────┴───────────────────────────────┘
 
 Summary: 1 passed, 0 warned, 0 failed
@@ -131,11 +175,12 @@ Nano-SRE uses "skills" to monitor different aspects of your store. Each skill fo
 
 ### Available Skills
 
-1. **Pixel Auditor**: Verifies that analytics pixels (Facebook, Google Analytics, TikTok) are firing correctly
-2. **Headless Probe**: Tests your headless storefront's API endpoints and performance
-3. **Visual Auditor**: Captures screenshots and detects layout drift
-4. **Shopify Doctor**: Uses the Shopify Dev MCP to diagnose API errors
-5. **MCP Advisor**: Provides AI-powered recommendations based on monitoring data
+1. **pixel_auditor**: Verifies that analytics pixels (Facebook, Google Analytics, TikTok) are firing correctly
+2. **headless_probe**: Tests your headless storefront's API endpoints and performance
+3. **visual_auditor**: Captures screenshots and detects layout drift
+4. **shopify_doctor**: Uses the Shopify Dev MCP to diagnose API errors
+5. **mcp_advisor**: Provides AI-powered recommendations based on monitoring data
+6. **shopify_shopper**: Real user journeys through product, cart, checkout flows
 
 ### Skill Results
 
@@ -149,7 +194,7 @@ Each skill returns one of three statuses:
 
 For production environments, you'll want to run monitoring continuously.
 
-### Watch Mode (Coming Soon)
+### Watch Mode
 
 ```bash
 nano-sre watch --interval 30
@@ -252,6 +297,16 @@ nano-sre audit --url https://your-store.myshopify.com --output post-migration-au
 ```
 
 Review the report to ensure all pixels and functionality still work correctly.
+
+### Visual Baselines
+
+Setting a visual baseline is critical for detecting layout drift. When you first set up Nano-SRE or after an intentional theme update, run:
+
+```bash
+nano-sre baseline update --url https://your-store.myshopify.com
+```
+
+This will save current screenshots as the "gold standard." Future audits will compare against these baselines and report any significant visual changes.
 
 ## Summary
 

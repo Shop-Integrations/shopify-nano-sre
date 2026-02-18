@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         ...,
         description="Shopify store URL (e.g., https://your-store.myshopify.com)",
     )
+    store_password: Optional[str] = Field(
+        None,
+        description="Shopify store password (if protected)",
+    )
 
     # Shopify Admin API (optional)
     shopify_admin_api_key: Optional[str] = Field(
@@ -29,9 +33,9 @@ class Settings(BaseSettings):
     )
 
     # LLM Configuration
-    llm_provider: Literal["openai", "anthropic", "ollama"] = Field(
+    llm_provider: Literal["openai", "anthropic", "ollama", "openrouter"] = Field(
         "openai",
-        description="LLM provider: openai, anthropic, or ollama",
+        description="LLM provider: openai, anthropic, ollama, or openrouter",
     )
     llm_api_key: Optional[str] = Field(
         None,
@@ -40,6 +44,24 @@ class Settings(BaseSettings):
     llm_model: str = Field(
         "gpt-4",
         description="Model name for the selected LLM provider",
+    )
+
+    # MCP Configuration
+    mcp_server_url: Optional[str] = Field(
+        None,
+        description="URL of the Shopify Dev MCP server (for HTTP/SSE)",
+    )
+    mcp_command: Optional[str] = Field(
+        None,
+        description="Command to run the MCP server (e.g., npx)",
+    )
+    mcp_args: list[str] = Field(
+        default_factory=list,
+        description="Arguments for the MCP server command",
+    )
+    mcp_enabled: bool = Field(
+        True,
+        description="Whether to use MCP for diagnostics",
     )
 
     # Alerting
@@ -59,6 +81,10 @@ class Settings(BaseSettings):
     sqlite_db_path: str = Field(
         "./nano_sre.db",
         description="Path to SQLite database file",
+    )
+    report_dir: str = Field(
+        "reports",
+        description="Directory to save incident reports",
     )
 
     # Privacy & Redaction

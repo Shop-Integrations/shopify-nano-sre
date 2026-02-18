@@ -188,6 +188,35 @@ Skills are self-contained monitoring modules that execute checks and return stru
 
 ---
 
+### MCP Integration
+
+Nano-SRE implements the **Model Context Protocol (MCP)** to bridge monitoring data with official documentation and expert knowledge.
+
+#### Architecture
+
+```
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│                 │       │                 │       │                 │
+│  Nano-SRE Agent │ <───> │   MCP Client    │ <───> │ Shopify Dev MCP │
+│                 │       │    (Stdio)      │       │    (Server)     │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+         │                         ▲                         │
+         │                         │                         │
+         └──── Captured Errors ────┘        Query Shopify Docs
+               (Console/API)                & API References
+```
+
+#### Implementation Details
+
+- **Stdio Client**: The agent launches the MCP server as a subprocess (e.g., via `npx`).
+- **Workflow**:
+  1. The `mcp_advisor` skill identifies errors captured by other skills (like `shopify_doctor` or `headless_probe`).
+  2. It initializes a "conversation" with the MCP server using the `learn_shopify_api` tool (Admin, Liquid, or Storefront).
+  3. It searches for solutions using the `search_docs_chunks` tool.
+  4. Diagnostics are surfaced in the final incident report.
+
+---
+
 ### Data Store Schema
 
 The SQLite database maintains state across monitoring runs.
@@ -296,7 +325,7 @@ Shopify stores are increasingly complex JavaScript applications with hydration, 
 - **Modern web support**: Handles SPAs, hydration, service workers
 - **Network interception**: Capture pixel hits without external proxies
 - **Performance metrics**: Built-in Web Vitals (LCP, FID, CLS)
-- **Mobile viewports**: iPhone 14 Pro emulation out-of-the-box
+- **Mobile viewports**: iPhone 17 Pro emulation out-of-the-box
 - **Screenshot API**: Visual regression testing support
 - **Headless & headed modes**: Debug locally, run headless in CI/Docker
 

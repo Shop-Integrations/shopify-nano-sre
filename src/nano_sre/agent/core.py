@@ -108,6 +108,35 @@ class Agent:
                 logger.info(f"Executing skill: {skill_name}")
                 result = await skill.run(self.context)
                 self.results.append(result)
+
+                # Accumulate errors in context for downstream skills like mcp_advisor
+                if result.details:
+                    if "console_errors" in result.details:
+                        current_errors = self.context.get("console_errors", [])
+                        new_errors = result.details["console_errors"]
+                        if isinstance(new_errors, list):
+                            # Convert string errors to dict if needed for mcp_advisor
+                            formatted_errors = [
+                                {"text": e if isinstance(e, str) else str(e), "type": "error"}
+                                for e in new_errors
+                            ]
+                            current_errors.extend(formatted_errors)
+                        self.context["console_errors"] = current_errors
+
+                    if "api_errors" in result.details:
+                        current_api_errors = self.context.get("api_errors", [])
+                        new_api_errors = result.details["api_errors"]
+                        if isinstance(new_api_errors, list):
+                            current_api_errors.extend(new_api_errors)
+                        self.context["api_errors"] = current_api_errors
+
+                    if "console_warnings" in result.details:
+                        current_warnings = self.context.get("console_errors", [])
+                        new_warnings = result.details["console_warnings"]
+                        if isinstance(new_warnings, list):
+                            current_warnings.extend(new_warnings)
+                        self.context["console_errors"] = current_warnings
+
                 logger.info(f"Skill {skill_name} completed with status: {result.status}")
             except Exception as e:
                 logger.exception(f"Error executing skill {skill_name}: {e}")

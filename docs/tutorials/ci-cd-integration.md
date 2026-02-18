@@ -60,6 +60,8 @@ jobs:
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          MCP_COMMAND: "npx"
+          MCP_ARGS: '["-y", "@shopify/dev-mcp@latest"]'
         run: |
           nano-sre audit --url $STORE_URL --output audit-report.json
       

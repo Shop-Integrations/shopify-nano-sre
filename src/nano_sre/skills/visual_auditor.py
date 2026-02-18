@@ -27,9 +27,8 @@ class VisualAuditor(Skill):
     # Pages to monitor
     MONITORED_PAGES = [
         "/",  # index
-        "/products/example-product",  # products (example)
+        "/products/the-collection-snowboard-liquid",  # products
         "/cart",
-        "/checkout",
     ]
 
     def __init__(self, llm_client: Any = None, update_baseline: bool = False):
@@ -233,7 +232,7 @@ class VisualAuditor(Skill):
             diff_pixels = sum(histogram[1:])
             total_pixels = diff_gray.size[0] * diff_gray.size[1]
 
-            diff_percent = diff_pixels / total_pixels if total_pixels > 0 else 0.0
+            diff_percent: float = diff_pixels / total_pixels if total_pixels > 0 else 0.0
 
             return diff_percent
 
@@ -291,9 +290,22 @@ class VisualAuditor(Skill):
             # Call LLM vision API (using litellm)
             import litellm
 
+            from nano_sre.config.settings import get_settings
+            from nano_sre.utils.llm import get_litellm_model_identifier
+
+            settings = get_settings()
+
+            # Determine model to use
+            if self.llm_client and isinstance(self.llm_client, dict):
+                model_name = self.llm_client.get("model", settings.llm_model)
+                model = get_litellm_model_identifier(settings.llm_provider, model_name)
+            else:
+                model = get_litellm_model_identifier(settings.llm_provider, settings.llm_model)
+
             response = await litellm.acompletion(
-                model=self.llm_client.get("model", "gpt-4-vision-preview"),
+                model=model,
                 messages=messages,
+                api_key=settings.llm_api_key if settings.llm_api_key else None,
                 max_tokens=500,
             )
 
