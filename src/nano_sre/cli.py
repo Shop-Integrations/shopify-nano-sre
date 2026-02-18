@@ -41,12 +41,8 @@ def main(ctx, report_dir: Optional[str]):
     # Ensure context object exists
     ctx.ensure_object(dict)
 
-    # Load settings to get default report_dir
-    settings = get_settings()
-    report_dir = report_dir or settings.report_dir
-
-    # Store report_dir in context for subcommands
-    ctx.obj["report_dir"] = report_dir
+    # Store report_dir in context for subcommands (will use default if not provided)
+    ctx.obj["report_dir"] = report_dir or "reports"
 
 
 @main.command()
@@ -243,11 +239,16 @@ async def _run_audit(
         if password:
             settings.store_password = password
 
-        # Ensure we have a URL
+        # Ensure we have a URL - now check for None since store_url is Optional
+        if not settings.store_url:
+            raise click.UsageError(
+                "Store URL is required. Provide it via --url option or STORE_URL environment variable"
+            )
+
         url = settings.store_url_str
         if not url or url == "None":
             raise click.UsageError(
-                "Store URL must be provided via --url or STORE_URL environment variable"
+                "Store URL is required. Provide it via --url option or STORE_URL environment variable"
             )
 
         console.print(f"[bold blue]Starting audit for:[/bold blue] {url}")

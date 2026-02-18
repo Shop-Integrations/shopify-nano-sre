@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     )
 
     # Store Configuration
-    store_url: HttpUrl = Field(
-        ...,
+    store_url: Optional[HttpUrl] = Field(
+        None,
         description="Shopify store URL (e.g., https://your-store.myshopify.com)",
     )
     store_password: Optional[str] = Field(
@@ -99,8 +99,10 @@ class Settings(BaseSettings):
 
     @field_validator("store_url", mode="before")
     @classmethod
-    def validate_store_url(cls, v: str) -> str:
+    def validate_store_url(cls, v: Optional[str]) -> Optional[str]:
         """Ensure store URL has proper format."""
+        if v is None:
+            return None
         if isinstance(v, str):
             if not v.startswith("http"):
                 v = f"https://{v}"
@@ -109,6 +111,8 @@ class Settings(BaseSettings):
     @property
     def store_url_str(self) -> str:
         """Return store URL as string."""
+        if self.store_url is None:
+            return ""
         return str(self.store_url)
 
 
