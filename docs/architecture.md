@@ -96,6 +96,7 @@ The agent loop is the heart of Nano-SRE, orchestrating continuous monitoring and
 ```
 
 **Key Flow:**
+
 1. Trigger fires (interval or webhook)
 2. Agent executes all registered skills sequentially
 3. Each skill returns a `SkillResult` (PASS/WARN/FAIL)
@@ -467,11 +468,11 @@ async def diagnose(skill_result):
 
 **Performance Benefits:**
 
-| Operation               | Sync Time | Async Time | Speedup |
-|------------------------|-----------|------------|---------|
-| Page load (3s)         | 3s        | 3s         | 1x      |
-| 3 LLM calls (2s each)  | 6s        | 2s         | 3x      |
-| Total pipeline         | 9s        | 5s         | 1.8x    |
+| Operation             | Sync Time | Async Time | Speedup |
+| --------------------- | --------- | ---------- | ------- |
+| Page load (3s)        | 3s        | 3s         | 1x      |
+| 3 LLM calls (2s each) | 6s        | 2s         | 3x      |
+| Total pipeline        | 9s        | 5s         | 1.8x    |
 
 **Trade-offs:**
 
@@ -740,6 +741,303 @@ For more details, see [CONTRIBUTING.md](../CONTRIBUTING.md) (placeholder).
 
 ---
 
+## Future Architecture: Advanced Shopify Integration Modules
+
+The following modules represent the next evolution of Nano-SRE, addressing deeper Shopify-specific reliability challenges identified through research and real-world deployment patterns.
+
+### Module 1: The Webhook Sentinel (Integrity Layer)
+
+**Problem Statement:**
+Webhook reliability is a critical failure point for Shopify apps. Shopify silently removes webhooks that fail consecutively for 48 hours, leading to "Silent Death" scenarios where data synchronization stops without warning.
+
+**Architectural Components:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Webhook Sentinel Architecture                 │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  HMAC Validation Middleware                              │   │
+│  │                                                            │   │
+│  │  1. Capture raw request buffer (before parsing)          │   │
+│  │  2. Compute HMAC-SHA256 with shared secret               │   │
+│  │  3. Compare with X-Shopify-Hmac-Sha256 header            │   │
+│  │  4. Only then parse JSON body                            │   │
+│  │                                                            │   │
+│  │  KEY: Zero-copy validation prevents buffer mutation      │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Subscription Watchdog (Hourly Cron)                     │   │
+│  │                                                            │   │
+│  │  query {                                                  │   │
+│  │    webhookSubscriptions(first: 100) {                    │   │
+│  │      edges {                                              │   │
+│  │        node { topic, endpoint, format }                  │   │
+│  │      }                                                     │   │
+│  │    }                                                       │   │
+│  │  }                                                         │   │
+│  │                                                            │   │
+│  │  Compare against expected topics:                        │   │
+│  │  - orders/create, orders/updated                         │   │
+│  │  - customers/create, customers/updated                   │   │
+│  │  - products/create, products/updated                     │   │
+│  │                                                            │   │
+│  │  Alert if missing: CRITICAL                              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Circuit Breaker Monitor                                 │   │
+│  │                                                            │   │
+│  │  Track: X-Shopify-Shop-Api-Call-Limit                   │   │
+│  │  Example: "32/40" means 8 calls remaining               │   │
+│  │                                                            │   │
+│  │  Alert thresholds:                                        │   │
+│  │  - WARN: > 80% capacity used                            │   │
+│  │  - CRITICAL: > 95% capacity used                        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation Details:**
+
+- **Skills Integration**: New skill `WebhookSentinel` that checks subscription health
+- **Database Schema**: Add `webhook_subscriptions` table tracking expected vs. actual topics
+- **Alert Priority**: P0 severity for missing critical webhooks
+
+---
+
+### Module 2: The Quota Guardian (Capacity Layer)
+
+**Problem Statement:**
+Shopify's rate limiting is complex with different algorithms for REST (request-based) and GraphQL (cost-based). Apps often hit 429 errors unexpectedly, causing service disruption.
+
+**Architectural Components:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Quota Guardian Architecture                   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Token Bucket Simulator (Local Mirror)                   │   │
+│  │                                                            │   │
+│  │  REST API:                                                │   │
+│  │  - Bucket size: 40 requests                              │   │
+│  │  - Refill rate: 2 requests/second                        │   │
+│  │  - Track: requests made, bucket level                   │   │
+│  │                                                            │   │
+│  │  GraphQL API:                                             │   │
+│  │  - Bucket size: 1000 points                              │   │
+│  │  - Refill rate: 50 points/second                         │   │
+│  │  - Track: cost consumed, available points                │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  GraphQL Cost Predictor                                  │   │
+│  │                                                            │   │
+│  │  Query Analysis:                                          │   │
+│  │  1. Parse query AST                                      │   │
+│  │  2. Count field depth and edge traversals                │   │
+│  │  3. Estimate cost: base + (fields * depth * edges)       │   │
+│  │                                                            │   │
+│  │  Example:                                                 │   │
+│  │    products(first: 250) { edges { node {                 │   │
+│  │      variants(first: 100) { edges { node {               │   │
+│  │        ... 10 fields                                      │   │
+│  │  Estimated cost: 250 * 100 * 10 = 250,000 points (!)     │   │
+│  │                                                            │   │
+│  │  Alert: "Query likely to throttle - reduce pagination"  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  AIMD Throttling Strategy                                │   │
+│  │                                                            │   │
+│  │  Additive Increase:                                       │   │
+│  │  - On success: rate += 1 req/sec                         │   │
+│  │                                                            │   │
+│  │  Multiplicative Decrease:                                │   │
+│  │  - On 429 error: rate *= 0.5                            │   │
+│  │  - On near-limit: rate *= 0.8                           │   │
+│  │                                                            │   │
+│  │  Result: Smooth throughput without hard failures         │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation Details:**
+
+- **Skills Integration**: New skill `QuotaGuardian` monitoring API consumption
+- **Middleware**: Request wrapper that enforces local rate limits before API calls
+- **Metrics**: Track historical rate limit patterns for capacity planning
+
+---
+
+### Module 3: The Drift Detective (Consistency Layer)
+
+**Problem Statement:**
+Data synchronization issues between Shopify and external systems (ERPs, warehouses) can cause revenue discrepancies and inventory overselling. These issues often go undetected for days.
+
+**Architectural Components:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Drift Detective Architecture                   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Synthetic Reconciliation (Daily Job)                    │   │
+│  │                                                            │   │
+│  │  Step 1: Fetch from Shopify                              │   │
+│  │  query {                                                  │   │
+│  │    orders(first: 50, reverse: true) {                    │   │
+│  │      edges { node {                                       │   │
+│  │        id, name, totalPriceSet, taxLines, lineItems      │   │
+│  │      }}                                                    │   │
+│  │    }                                                       │   │
+│  │  }                                                         │   │
+│  │                                                            │   │
+│  │  Step 2: Fetch from ERP (via adapter)                    │   │
+│  │  erp_client.get_recent_orders(limit=50)                  │   │
+│  │                                                            │   │
+│  │  Step 3: Field-level comparison                          │   │
+│  │  - total_price: abs(shopify - erp) < $0.05               │   │
+│  │  - line_items count: exact match                         │   │
+│  │  - tax_lines: sum within 1 cent                          │   │
+│  │                                                            │   │
+│  │  Step 4: Alert on drift                                  │   │
+│  │  if discrepancies > threshold:                            │   │
+│  │    severity = "CRITICAL"                                 │   │
+│  │    message = "Revenue drift detected: $X difference"     │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Inventory Sampling                                       │   │
+│  │                                                            │   │
+│  │  1. Select random product from inventory                 │   │
+│  │  2. Check frontend: Parse "Add to Cart" button state    │   │
+│  │  3. Check backend: query { product { variants {          │   │
+│  │       inventoryQuantity } } }                             │   │
+│  │  4. Compare:                                              │   │
+│  │     - Frontend: "In Stock"                               │   │
+│  │     - Backend: inventoryQuantity = 0                     │   │
+│  │     → ALERT: Stale cache detected                        │   │
+│  │                                                            │   │
+│  │  Value: Catch CDN/Hydrogen caching issues                │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation Details:**
+
+- **Skills Integration**: New skill `DriftDetective` for reconciliation checks
+- **Adapter Pattern**: Pluggable ERP adapters (NetSuite, SAP, custom APIs)
+- **Configurable Thresholds**: Per-merchant tolerance for price/quantity drift
+
+---
+
+### Module 4: The AI Remediation Agent (The Future)
+
+**Problem Statement:**
+Current error handling is reactive and manual. LLMs can analyze errors, suggest fixes, and even auto-remediate common issues with human oversight.
+
+**Architectural Components:**
+
+````
+┌─────────────────────────────────────────────────────────────────┐
+│                 AI Remediation Agent Architecture                │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Error Capture Pipeline                                  │   │
+│  │                                                            │   │
+│  │  1. Exception occurs (e.g., Liquid Render Error)         │   │
+│  │  2. Capture:                                              │   │
+│  │     - Full stack trace                                    │   │
+│  │     - Relevant code snippet (±10 lines)                  │   │
+│  │     - Request context (URL, params)                      │   │
+│  │     - Recent changes (git diff)                          │   │
+│  │  3. Store in incidents table with error_context field    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  LLM Analysis Engine                                     │   │
+│  │                                                            │   │
+│  │  Prompt Template:                                         │   │
+│  │  """                                                      │   │
+│  │  You are a Shopify Expert with deep knowledge of Liquid, │   │
+│  │  theme development, and app integrations.                │   │
+│  │                                                            │   │
+│  │  ERROR:                                                   │   │
+│  │  {stack_trace}                                            │   │
+│  │                                                            │   │
+│  │  CODE:                                                    │   │
+│  │  {code_snippet}                                           │   │
+│  │                                                            │   │
+│  │  CONTEXT:                                                 │   │
+│  │  {request_context}                                        │   │
+│  │                                                            │   │
+│  │  Tasks:                                                   │   │
+│  │  1. Explain the root cause                               │   │
+│  │  2. Provide a unified diff to fix the issue              │   │
+│  │  3. Suggest preventive measures                          │   │
+│  │  """                                                      │   │
+│  │                                                            │   │
+│  │  Response includes:                                       │   │
+│  │  - Root cause analysis                                    │   │
+│  │  - Suggested code fix (diff format)                      │   │
+│  │  - Prevention strategies                                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Human-in-the-Loop Workflow                              │   │
+│  │                                                            │   │
+│  │  1. Post to Slack/Discord:                               │   │
+│  │     📛 Incident #42: Liquid Render Error                 │   │
+│  │                                                            │   │
+│  │     🤖 AI Analysis:                                       │   │
+│  │     Root cause: Undefined variable `product.vendor`      │   │
+│  │                                                            │   │
+│  │     💡 Suggested Fix:                                     │   │
+│  │     ```diff                                               │   │
+│  │     - {{ product.vendor }}                               │   │
+│  │     + {{ product.vendor | default: 'Unknown' }}          │   │
+│  │     ```                                                   │   │
+│  │                                                            │   │
+│  │     [✅ Approve]  [❌ Reject]  [✏️ Modify]                │   │
+│  │                                                            │   │
+│  │  2. Developer reviews and approves                       │   │
+│  │  3. Auto-apply fix (via GitHub API or deployment hook)   │   │
+│  │  4. Track fix success rate for learning                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+````
+
+**Implementation Details:**
+
+- **Skills Integration**: Enhance diagnosis module with remediation capabilities
+- **Fix Library**: SQLite table storing successful fix patterns for auto-application
+- **Learning Loop**: Track which suggested fixes are accepted/rejected to improve prompts
+- **Safety**: All automated fixes require explicit approval and include rollback capability
+
+---
+
+### Integration Timeline
+
+These modules will be developed in stages aligned with roadmap phases:
+
+- **Phase 3**: Begin Webhook Sentinel and Quota Guardian (core infrastructure)
+- **Phase 4**: Add Drift Detective (business logic layer)
+- **Phase 5**: Implement AI Remediation Agent (advanced AI features)
+
+### Research References
+
+These modules are informed by:
+
+- Shopify webhook reliability patterns and failure modes
+- GraphQL cost calculation algorithms (Shopify Admin API docs)
+- Rate limiting best practices from Gadget.dev research
+- Shopify app development partner feedback and common pitfalls
+
+---
+
 ## References
 
 - [Playwright Documentation](https://playwright.dev/)
@@ -747,8 +1045,11 @@ For more details, see [CONTRIBUTING.md](../CONTRIBUTING.md) (placeholder).
 - [Python asyncio Guide](https://docs.python.org/3/library/asyncio.html)
 - [Shopify Checkout Extensibility](https://shopify.dev/docs/apps/checkout)
 - [LiteLLM Documentation](https://docs.litellm.ai/)
+- [Shopify Webhook Documentation](https://shopify.dev/docs/apps/webhooks)
+- [Shopify GraphQL Admin API](https://shopify.dev/docs/api/admin-graphql)
+- [Shopify Rate Limits](https://shopify.dev/docs/api/usage/rate-limits)
 
 ---
 
-**Last Updated:** 2026-02-17  
-**Version:** 1.0.0
+**Last Updated:** 2026-02-18  
+**Version:** 1.1.0

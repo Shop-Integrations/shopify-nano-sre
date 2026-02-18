@@ -135,6 +135,40 @@ docs/                # Documentation
 4. Commit with descriptive messages
 5. Push and create a Pull Request
 
+### Future Module Development Opportunities
+
+We're actively developing advanced Shopify integration modules. These are great opportunities for contributors:
+
+#### Module 1: Webhook Sentinel (Integrity Layer)
+**Skills needed:** Python async, webhook security, Shopify Admin API  
+**Focus areas:**
+- HMAC validation middleware implementation
+- Webhook subscription monitoring via GraphQL
+- Circuit breaker pattern detection
+
+#### Module 2: Quota Guardian (Capacity Layer)
+**Skills needed:** Rate limiting algorithms, GraphQL cost analysis, async Python  
+**Focus areas:**
+- Token bucket algorithm implementation
+- GraphQL query AST parsing for cost prediction
+- AIMD throttling strategy
+
+#### Module 3: Drift Detective (Consistency Layer)
+**Skills needed:** Data reconciliation, async workflows, adapter patterns  
+**Focus areas:**
+- Synthetic reconciliation logic
+- ERP adapter plugin system
+- Inventory cache validation
+
+#### Module 4: AI Remediation Agent (The Future)
+**Skills needed:** LLM prompting, error analysis, human-in-the-loop workflows  
+**Focus areas:**
+- Error context extraction and enrichment
+- LLM-powered fix generation
+- Slack/Discord integration for approval workflows
+
+See [docs/architecture.md](architecture.md) for detailed technical specifications of each module.
+
 ## Environment Variables
 
 Create a `.env` file based on `.env.example`:

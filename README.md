@@ -192,8 +192,18 @@ Tracks pixel firing:
 - [x] Phase 1 (current): Core skills, local monitoring
 - [ ] Phase 2: Cloud sync, dashboard, advanced LLM features
 - [ ] Phase 3: Community marketplace, advanced integrations
+- [ ] Phase 4: Advanced Shopify integration modules
 
-See [docs/roadmap.md](docs/roadmap.md) for details.
+### Future: Deep Shopify Integration Modules
+
+Building on research into Shopify app reliability patterns, we're developing specialized modules:
+
+- **Webhook Sentinel** - HMAC validation middleware, subscription watchdog (prevents silent webhook removal), circuit breaker monitoring
+- **Quota Guardian** - Real-time API rate limit visualization, GraphQL cost prediction, AIMD throttling strategy
+- **Drift Detective** - Synthetic reconciliation between Shopify and ERPs, inventory sampling, cache staleness detection
+- **AI Remediation Agent** - LLM-powered error analysis, automated fix suggestions with human-in-the-loop approval
+
+See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md) for detailed specifications.
 
 ## Development
 
