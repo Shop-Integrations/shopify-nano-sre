@@ -202,9 +202,9 @@ def _add_screenshots_to_messages(
     if messages:
         last_message = messages[-1]
         if "content" in last_message:
-            last_message[
-                "content"
-            ] += f"\n\nNote: {len(screenshots)} screenshot(s) available for analysis."
+            last_message["content"] += (
+                f"\n\nNote: {len(screenshots)} screenshot(s) available for analysis."
+            )
     return messages
 
 
