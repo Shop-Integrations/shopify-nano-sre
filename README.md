@@ -1,12 +1,36 @@
 # Shopify Nano-SRE
 
-> The open-source AI engineer that monitors your Shopify store 24/7.
+> Shopify synthetic monitoring with Playwright + evidence capture (console/network/CSP/trace/screenshots). Optional LLM diagnosis.
+
+- ✅ **Works with no LLM key** (just evidence + deterministic checks)
+- 🧠 **Add LLM later** for diagnosis/suggestions
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Playwright](https://img.shields.io/badge/powered%20by-Playwright-green.svg)](https://playwright.dev/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI Status](https://github.com/Shop-Integrations/shopify-nano-sre/actions/workflows/ci.yml/badge.svg)](https://github.com/Shop-Integrations/shopify-nano-sre/actions)
 [![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)](https://github.com/Shop-Integrations/shopify-nano-sre/actions)
+
+## What You Get
+
+![Evidence Bundle - Trace, Screenshots, Failures](docs/demo/evidence_bundle.png)
+*Example evidence bundle captured during a failure: Playwright trace, network HAR, console logs, and screenshots.*
+
+## Features
+
+- 🤖 **Optional Diagnostics**: LLMs analyze failures and propose next steps
+- 🎭 **Synthetic Shopper**: Real user journeys through product, cart, checkout
+- 🧪 **Pixel Auditor**: Verifies checkout events and conversion tracking
+- 🧿 **Visual Layout Sentinel**: Detects layout drift after app/theme changes
+- 🩺 **Shopify Doctor**: Uses the Shopify Dev MCP to explain API errors
+- 📊 **SQLite Baselines**: Tracks performance metrics locally
+- 🔒 **Local-First + BYOK**: Run on your machine, keep your store data private
+- 📱 **Mobile-First**: Mobile viewport preset included by default
+- 🐳 **Docker Ready**: Containerized deployment supported
+
+## About
+
+Nano-SRE is a lightweight, AI-powered Site Reliability Engineering (SRE) tool designed specifically for Shopify stores. It continuously monitors your storefront, product pages, add-to-cart flows, and checkout using synthetic monitoring with Playwright, then employs LLM-driven diagnostics to detect and alert you to issues before customers see them.
 
 ## Monitoring Comparison
 
@@ -23,22 +47,6 @@
 | Self-Hosted                | ❌      | ❌                 | ✅               |
 | Setup Time                 | 5 min   | Days or weeks      | 5 min            |
 | Cost per month             | $10-50  | $500+ (enterprise) | Free (+ LLM API) |
-
-## Features
-
-- 🤖 **Agentic Diagnostics**: LLMs analyze failures and propose next steps
-- 🎭 **Synthetic Shopper**: Real user journeys through product, cart, checkout
-- 🧪 **Pixel Auditor**: Verifies checkout events and conversion tracking
-- 🧿 **Visual Layout Sentinel**: Detects layout drift after app/theme changes
-- 🩺 **Shopify Doctor**: Uses the Shopify Dev MCP to explain API errors
-- 📊 **SQLite Baselines**: Tracks performance metrics locally
-- 🔒 **Local-First + BYOK**: Run on your machine, bring your own LLM key
-- 📱 **Mobile-First**: iPhone 17 Pro viewport included by default
-- 🐳 **Docker Ready**: Containerized deployment supported
-
-## About
-
-Nano-SRE is a lightweight, AI-powered Site Reliability Engineering (SRE) tool designed specifically for Shopify stores. It continuously monitors your storefront, product pages, add-to-cart flows, and checkout using synthetic monitoring with Playwright, then employs LLM-driven diagnostics to detect and alert you to issues before customers see them.
 
 ## Demo
 
@@ -70,9 +78,9 @@ As Shopify transitions to [Checkout Extensibility](https://shopify.dev/docs/cust
 
 - **Synthetic Shopper**: Walks through your product and checkout flow autonomously
 - **Pixel Auditor**: Validates critical analytics pixels (Facebook, GA, TikTok) are firing
-- **Smart Diagnosis**: Uses LLMs to analyze failures and suggest remediation
-- **Mobile-First**: Tests on iPhone 17 Pro viewport by default
-- **Local-First**: Runs locally with BYOK, keeping store data private
+- **Smart Diagnosis**: Optional LLM analysis of failures to suggest remediation
+- **Mobile-First**: Tests with mobile iPhone viewport preset by default
+- **Local-First**: Runs locally, keeping store data private
 
 ## Quick Start
 
@@ -101,22 +109,22 @@ pip install -e ".[dev]"
    - `MCP_COMMAND`: `npx` (for Shopify Dev MCP)
    - `MCP_ARGS`: `'["-y", "@shopify/dev-mcp@latest"]'`
 
-### Run Your First Check
+### Instant Run (No env file edits required)
+
+```bash
+nano-sre audit --url https://example.myshopify.com --no-llm
+```
+
+Or trigger a manual check with artifacts saved to a directory:
+
+```bash
+nano-sre check --url https://mystore.myshopify.com --artifact-dir ./out
+```
+
+Or run the continuous watcher:
 
 ```bash
 nano-sre watch --interval 30
-```
-
-Or trigger a manual check:
-
-```bash
-nano-sre check
-```
-
-Or run a one-off audit:
-
-```bash
-nano-sre audit --url https://mystore.myshopify.com
 ```
 
 ## How It Works
